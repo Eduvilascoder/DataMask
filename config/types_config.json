@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "types": {
+    "nombre": {
+      "enabled": true,
+      "label": "NOMBRE",
+      "description": "Detecta nombres y apellidos de personas"
+    },
+    "email": {
+      "enabled": true,
+      "label": "EMAIL",
+      "description": "Detecta direcciones de correo electrónico"
+    },
+    "celular": {
+      "enabled": true,
+      "label": "CELULAR",
+      "description": "Detecta números de celular con prefijo +54 9"
+    },
+    "telefono": {
+      "enabled": true,
+      "label": "TELEFONO",
+      "description": "Detecta números de teléfono fijo con prefijo +54"
+    },
+    "direccion": {
+      "enabled": true,
+      "label": "DIRECCION",
+      "description": "Detecta direcciones postales"
+    },
+    "tarjeta_credito": {
+      "enabled": true,
+      "label": "TARJETA_CREDITO",
+      "description": "Detecta números de tarjeta de crédito (16 dígitos)"
+    },
+    "cuenta_bancaria": {
+      "enabled": true,
+      "label": "CUENTA_BANCARIA",
+      "description": "Detecta números de CBU (22 dígitos)"
+    },
+    "dni": {
+      "enabled": true,
+      "label": "DNI",
+      "description": "Detecta números de DNI argentino (7-8 dígitos)"
+    },
+    "cuit_cuil": {
+      "enabled": true,
+      "label": "CUIT_CUIL",
+      "description": "Detecta números de CUIT/CUIL (XX-XXXXXXXX-X)"
+    },
+    "pasaporte": {
+      "enabled": true,
+      "label": "PASAPORTE",
+      "description": "Detecta números de pasaporte argentino (AAX######)"
+    }
+  },
+  "custom_types": [
+    {
+      "id": "[telefono]",
+      "enabled": true,
+      "label": "[TELEFONO]",
+      "description": "Detecta números de teléfono fijo con prefijo +56"
+    }
+  ],
+  "updated_at": "2026-05-29T19:10:39.076010+00:00"
+}

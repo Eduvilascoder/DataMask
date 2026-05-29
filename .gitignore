@@ -1,0 +1,38 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# App runtime data
+log/audit.jsonl
+ofuscados/
+ofuscados_md/
+
+# Environment
+.env
+.env.local
+
+# Models (too large for git — downloaded by setup script)
+models/
+
+# OS
+Thumbs.db
