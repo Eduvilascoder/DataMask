@@ -102,27 +102,53 @@ echo [INFO] Verificando Node.js...
 where node >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Node.js no encontrado. Instalando automaticamente...
-    echo [INFO] Descargando Node.js LTS...
+    echo [INFO] Descargando Node.js 20 LTS...
     curl -fsSL -o "%TEMP%\node-setup.msi" "https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi"
     if !errorlevel! neq 0 (
         echo [ERROR] No se pudo descargar Node.js.
         echo   Instale manualmente desde: https://nodejs.org/
         exit /b 1
     )
-    echo [INFO] Instalando Node.js...
+    echo [INFO] Instalando Node.js ^(esto puede tardar un minuto^)...
     msiexec /i "%TEMP%\node-setup.msi" /qn /norestart
     del "%TEMP%\node-setup.msi" 2>nul
-    REM Refrescar PATH
-    set "PATH=%PATH%;C:\Program Files\nodejs"
-    where node >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo [ERROR] Node.js se instalo pero no se encuentra en el PATH.
-        echo   Cierre esta terminal, abra una nueva y ejecute setup.bat de nuevo.
-        exit /b 1
+    REM Esperar a que termine la instalacion
+    timeout /t 5 /nobreak >nul
+    REM Buscar node en todas las ubicaciones posibles
+    set "NODE_FOUND=0"
+    if exist "C:\Program Files\nodejs\node.exe" (
+        set "PATH=!PATH!;C:\Program Files\nodejs"
+        set "NODE_FOUND=1"
+    )
+    if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "PATH=!PATH!;%ProgramFiles%\nodejs"
+        set "NODE_FOUND=1"
+    )
+    if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
+        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\nodejs"
+        set "NODE_FOUND=1"
+    )
+    if "!NODE_FOUND!"=="0" (
+        echo.
+        echo [AVISO] Node.js se instalo correctamente pero requiere reiniciar la terminal.
+        echo.
+        echo   POR FAVOR:
+        echo   1. Cierre esta ventana de terminal
+        echo   2. Abra una nueva terminal ^(CMD o PowerShell^)
+        echo   3. Ejecute setup.bat de nuevo
+        echo.
+        echo   Node.js ya esta instalado, solo necesita refrescar el PATH.
+        exit /b 0
     )
     echo [OK] Node.js instalado correctamente
 )
 
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Node.js no disponible en esta sesion.
+    echo   Cierre la terminal, abra una nueva y ejecute setup.bat de nuevo.
+    exit /b 1
+)
 for /f "tokens=1 delims=." %%a in ('node --version') do set "NODE_VERSION_RAW=%%a"
 set "NODE_MAJOR=!NODE_VERSION_RAW:v=!"
 for /f "delims=" %%v in ('node --version') do set "NODE_VERSION_DISPLAY=%%v"
