@@ -53,6 +53,12 @@ if not exist "models\" mkdir models
 if not exist "config\" mkdir config
 
 REM Iniciar Ollama en background si está disponible
+REM Buscar ollama en PATH y ubicaciones conocidas
+where ollama >nul 2>&1
+if %errorlevel% neq 0 (
+    if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Ollama"
+    if exist "%ProgramFiles%\Ollama\ollama.exe" set "PATH=%PATH%;%ProgramFiles%\Ollama"
+)
 where ollama >nul 2>&1
 if %errorlevel% equ 0 (
     curl -s http://localhost:11434/api/tags >nul 2>&1

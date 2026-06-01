@@ -329,6 +329,17 @@ if /i "!INSTALL_OLLAMA!"=="N" (
 )
 
 REM Verificar si Ollama ya está instalado
+REM Buscar en PATH y en ubicacion conocida de Windows
+where ollama >nul 2>&1
+if !errorlevel! neq 0 (
+    if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Ollama"
+    ) else if exist "%ProgramFiles%\Ollama\ollama.exe" (
+        set "PATH=!PATH!;%ProgramFiles%\Ollama"
+    ) else if exist "%USERPROFILE%\AppData\Local\Ollama\ollama.exe" (
+        set "PATH=!PATH!;%USERPROFILE%\AppData\Local\Ollama"
+    )
+)
 where ollama >nul 2>&1
 if %errorlevel% equ 0 (
     echo [AVISO] Ollama ya esta instalado.
@@ -347,6 +358,14 @@ if %errorlevel% equ 0 (
         start /wait "" "%TEMP%\OllamaSetup.exe" /SILENT
         del "%TEMP%\OllamaSetup.exe" 2>nul
         timeout /t 3 /nobreak >nul
+        REM Buscar ollama en ubicaciones conocidas
+        if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+            set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Ollama"
+        ) else if exist "%ProgramFiles%\Ollama\ollama.exe" (
+            set "PATH=!PATH!;%ProgramFiles%\Ollama"
+        ) else if exist "%USERPROFILE%\AppData\Local\Ollama\ollama.exe" (
+            set "PATH=!PATH!;%USERPROFILE%\AppData\Local\Ollama"
+        )
         where ollama >nul 2>&1
         if !errorlevel! equ 0 (
             echo [OK] Ollama instalado correctamente
@@ -365,6 +384,13 @@ if %errorlevel% equ 0 (
 )
 
 REM Descargar modelo Llama 3.1 8B
+REM Buscar ollama de nuevo (por si se agrego al PATH arriba)
+where ollama >nul 2>&1
+if !errorlevel! neq 0 (
+    if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Ollama"
+    )
+)
 where ollama >nul 2>&1
 if %errorlevel% equ 0 (
     echo [INFO] Verificando modelo Llama 3.1 8B...
