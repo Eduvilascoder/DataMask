@@ -237,9 +237,13 @@ REM Activar entorno virtual
 call venv\Scripts\activate.bat
 echo [OK] Entorno virtual activado
 
+REM Usar ruta completa al python del venv para evitar alias de Microsoft Store
+set "VENV_PYTHON=%SCRIPT_DIR%venv\Scripts\python.exe"
+set "VENV_PIP=%SCRIPT_DIR%venv\Scripts\pip.exe"
+
 REM Actualizar pip
 echo [INFO] Actualizando pip...
-python -m pip install --upgrade pip --quiet
+"%VENV_PYTHON%" -m pip install --upgrade pip --quiet 2>nul
 echo [OK] pip actualizado
 
 echo.
@@ -265,7 +269,7 @@ set "DEPS_MISSING=0"
 for /f "usebackq tokens=1 delims==><" %%p in ("requirements.txt") do (
     set "PKG=%%p"
     if not "!PKG!"=="" (
-        pip show "!PKG!" >nul 2>&1
+        "%VENV_PIP%" show "!PKG!" >nul 2>&1
         if !errorlevel! neq 0 (
             set "DEPS_MISSING=1"
         )
@@ -276,12 +280,12 @@ if %DEPS_MISSING% equ 0 (
     echo [AVISO] Dependencias de Python ya instaladas. Se omite la reinstalacion.
 ) else (
     echo [INFO] Instalando paquetes desde requirements.txt...
-    pip install -r requirements.txt --quiet
-    if %errorlevel% neq 0 (
+    "%VENV_PIP%" install -r requirements.txt --quiet
+    if !errorlevel! neq 0 (
         echo [ERROR] Fallo al instalar dependencias de Python.
         echo   Intente manualmente:
         echo     venv\Scripts\activate.bat
-        echo     pip install -r requirements.txt
+        echo     venv\Scripts\pip install -r requirements.txt
         echo.
         echo   Si el error persiste, verifique:
         echo     - Conexion a internet activa
@@ -361,7 +365,7 @@ echo [INFO] Este paso puede tardar varios minutos dependiendo de su conexion...
 
 REM Verificar si el modelo ya está instalado y funcional
 set "MODEL_INSTALLED=0"
-python -c "import spacy; nlp = spacy.load('es_core_news_lg'); doc = nlp('test'); exit(0 if len(doc) > 0 else 1)" >nul 2>&1
+"%VENV_PYTHON%" -c "import spacy; nlp = spacy.load('es_core_news_lg'); doc = nlp('test'); exit(0 if len(doc) > 0 else 1)" >nul 2>&1
 if %errorlevel% equ 0 (
     set "MODEL_INSTALLED=1"
 )
@@ -370,7 +374,7 @@ if %MODEL_INSTALLED% equ 1 (
     echo [AVISO] Modelo es_core_news_lg ya instalado y verificado. Se omite la descarga.
 ) else (
     echo [INFO] Descargando modelo es_core_news_lg...
-    python -m spacy download es_core_news_lg
+    "%VENV_PYTHON%" -m spacy download es_core_news_lg
     if %errorlevel% neq 0 (
         echo [ERROR] Fallo al descargar el modelo spaCy es_core_news_lg.
         echo.
@@ -387,7 +391,7 @@ if %MODEL_INSTALLED% equ 1 (
 
     REM Verificar integridad post-descarga
     echo [INFO] Verificando integridad del modelo descargado...
-    python -c "import spacy; nlp = spacy.load('es_core_news_lg'); doc = nlp('Verificacion post-instalacion.'); assert len(doc) > 0 and nlp.meta.get('name') == 'core_news_lg'" >nul 2>&1
+    "%VENV_PYTHON%" -c "import spacy; nlp = spacy.load('es_core_news_lg'); doc = nlp('Verificacion post-instalacion.'); assert len(doc) > 0 and nlp.meta.get('name') == 'core_news_lg'" >nul 2>&1
     if %errorlevel% neq 0 (
         echo [ERROR] El modelo descargado no paso la verificacion de integridad.
         echo   El archivo puede estar corrupto. Intente:
