@@ -156,7 +156,7 @@ class NEREngine:
                 expanded.append(ent)
 
         # Fusionar entidades adyacentes del mismo tipo
-        return self._merge_adjacent_same_type(expanded)
+        return self._merge_adjacent_same_type(expanded, text)
 
     def _load_model(self, model_name: str) -> Language:
         """Carga el modelo spaCy especificado.
@@ -356,16 +356,17 @@ class NEREngine:
         return sorted(resolved, key=lambda e: e.start)
 
     def _merge_adjacent_same_type(
-        self, entities: list[DetectedEntity]
+        self, entities: list[DetectedEntity], original_text: str = ""
     ) -> list[DetectedEntity]:
         """Fusiona entidades adyacentes del mismo tipo en una sola.
 
-        Si "Pablo" [NOMBRE] y "Andrés" [NOMBRE] y "Bitreras" [NOMBRE]
-        están separadas solo por espacios en la misma línea, se fusionan
-        en una sola entidad [NOMBRE] que cubre todo el span.
+        Si "Pablo" [NOMBRE] y "Bitreras" [NOMBRE] están separadas
+        solo por espacios en la misma línea, se fusionan en una sola
+        entidad [NOMBRE] que cubre todo el span original.
 
         Args:
             entities: Lista de entidades ordenadas por posición.
+            original_text: Texto original para extraer el texto real.
 
         Returns:
             Lista con entidades adyacentes del mismo tipo fusionadas.
@@ -379,33 +380,37 @@ class NEREngine:
         for current in sorted_ents[1:]:
             last = merged[-1]
 
-            # Verificar si son del mismo tipo, misma página, y adyacentes
             gap = current.start - last.end
             if (
                 current.entity_type == last.entity_type
                 and current.page == last.page
                 and 0 <= gap <= 15
             ):
-                # No fusionar si hay un salto de línea en el gap
-                gap_text = last.text[len(last.text):] if gap == 0 else ""
-                # Usar posiciones para verificar — si el gap contiene \n, no fusionar
-                # Como no tenemos el texto original aquí, usamos heurística:
-                # si el end del último y start del actual están en la misma "zona"
-                # (gap <= 15 y no hay newline implícito por la diferencia de posición)
                 should_merge = True
 
-                # Heurística: si el texto del último termina con \n o el gap es > 1 línea
                 if "\n" in last.text or "\n" in current.text:
                     should_merge = False
 
+                # Check gap for newlines using original text
+                if should_merge and original_text and last.end < len(original_text):
+                    gap_content = original_text[last.end:current.start]
+                    if "\n" in gap_content:
+                        should_merge = False
+
                 if should_merge:
-                    # Fusionar: crear entidad que cubra todo el span
-                    merged_text = last.text.rstrip() + " " + current.text.lstrip()
+                    new_start = last.start
+                    new_end = current.end
+                    # Use original text to get the real merged text
+                    if original_text and new_end <= len(original_text):
+                        merged_text = original_text[new_start:new_end]
+                    else:
+                        merged_text = last.text.rstrip() + " " + current.text.lstrip()
+
                     merged[-1] = DetectedEntity(
                         text=merged_text,
                         entity_type=last.entity_type,
-                        start=last.start,
-                        end=current.end,
+                        start=new_start,
+                        end=new_end,
                         confidence=max(last.confidence, current.confidence),
                         page=last.page,
                     )

@@ -435,7 +435,39 @@ class PDFProcessor:
 
         for entity in entities:
             label = f"[{entity.entity_type.value}]"
+
+            # Estrategia: buscar el texto original de la entidad en la página.
+            # Si la entidad fue fusionada (merge), el texto puede no coincidir
+            # exactamente con lo que hay en el PDF. En ese caso, buscamos
+            # las palabras individuales y creamos un rect que las cubra todas.
             text_instances = page.search_for(entity.text)
+
+            if not text_instances:
+                # Si no se encuentra el texto fusionado, buscar por palabras
+                # individuales y crear un bounding box que las cubra
+                words = entity.text.split()
+                if words:
+                    # Buscar la primera y última palabra
+                    first_rects = page.search_for(words[0])
+                    last_rects = page.search_for(words[-1])
+
+                    if first_rects and last_rects:
+                        # Tomar el primer match de la primera palabra
+                        # y el primer match de la última palabra que esté
+                        # en la misma línea (similar y-coordinate)
+                        for fr in first_rects:
+                            for lr in last_rects:
+                                # Verificar que están en la misma línea
+                                if abs(fr.y0 - lr.y0) < 5:
+                                    # Crear rect que cubra desde primera hasta última
+                                    combined = fitz.Rect(
+                                        fr.x0, min(fr.y0, lr.y0),
+                                        lr.x1, max(fr.y1, lr.y1)
+                                    )
+                                    text_instances = [combined]
+                                    break
+                            if text_instances:
+                                break
 
             for rect in text_instances:
                 fontsize = 11.0
