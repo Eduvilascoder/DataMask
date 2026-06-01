@@ -287,7 +287,7 @@ echo ""
 read -p "  ¿Desea instalar Ollama? (S/N) [S]: " INSTALL_OLLAMA
 INSTALL_OLLAMA=${INSTALL_OLLAMA:-S}
 
-if [[ "${INSTALL_OLLAMA^^}" == "N" ]]; then
+if [[ "$INSTALL_OLLAMA" == "N" || "$INSTALL_OLLAMA" == "n" ]]; then
     print_info "Ollama omitido. Se usará spaCy como motor de IA."
 else
 
