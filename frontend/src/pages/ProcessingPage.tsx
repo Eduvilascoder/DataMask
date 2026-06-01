@@ -117,12 +117,13 @@ const ProcessingPage: React.FC = () => {
       );
     } else if (engineStatus.active_engine === 'spacy') {
       const isDisabledByConfig = (engineStatus as any).configured_engine === 'spacy';
+      const reason = (engineStatus as any).ollama?.reason;
       return (
         <Box margin={{ bottom: 's' }}>
           <StatusIndicator type={isDisabledByConfig ? 'info' : 'warning'}>
             {isDisabledByConfig
               ? 'Ollama deshabilitado — usando spaCy (configurado por usuario)'
-              : 'spaCy activo (Ollama no disponible)'}
+              : `spaCy activo — ${reason || 'Ollama no disponible'}`}
           </StatusIndicator>
         </Box>
       );

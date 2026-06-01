@@ -43,19 +43,62 @@ Responde SOLO con el JSON array, sin explicaciones:"""
 
 def is_ollama_available() -> bool:
     """Verifica si Ollama está corriendo y el modelo está disponible."""
+    status = get_ollama_status()
+    return status["available"]
+
+
+def get_ollama_status() -> dict:
+    """Retorna estado detallado de Ollama con razón si no está disponible."""
     try:
         response = httpx.get(
             f"{OLLAMA_BASE_URL}/api/tags",
             timeout=5.0,
         )
         if response.status_code != 200:
-            return False
+            return {
+                "available": False,
+                "reason": "Ollama respondió con error",
+                "service_running": True,
+                "model_ready": False,
+            }
         data = response.json()
         models = [m.get("name", "") for m in data.get("models", [])]
-        # Check if any variant of llama3.1 is available
-        return any("llama3.1" in m or "llama3.1:8b" in m for m in models)
-    except (httpx.ConnectError, httpx.TimeoutException, Exception):
-        return False
+        has_model = any("llama3.1" in m for m in models)
+        if has_model:
+            return {
+                "available": True,
+                "reason": None,
+                "service_running": True,
+                "model_ready": True,
+            }
+        else:
+            return {
+                "available": False,
+                "reason": f"Modelo llama3.1:8b no descargado. Ejecute: ollama pull llama3.1:8b. Modelos disponibles: {models}",
+                "service_running": True,
+                "model_ready": False,
+            }
+    except httpx.ConnectError:
+        return {
+            "available": False,
+            "reason": "Ollama no está corriendo. Ejecute: ollama serve",
+            "service_running": False,
+            "model_ready": False,
+        }
+    except httpx.TimeoutException:
+        return {
+            "available": False,
+            "reason": "Ollama no responde (timeout). Reinicie Ollama.",
+            "service_running": False,
+            "model_ready": False,
+        }
+    except Exception as exc:
+        return {
+            "available": False,
+            "reason": f"Error: {exc}",
+            "service_running": False,
+            "model_ready": False,
+        }
 
 
 def detect_with_ollama(text: str, page: int) -> list[DetectedEntity]:

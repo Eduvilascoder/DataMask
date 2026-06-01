@@ -118,10 +118,11 @@ class LogsResponse(BaseModel):
 @router.get("/status/engine")
 async def get_engine_status():
     """Returns the status of the NER engines (Ollama and spaCy)."""
-    from app.ner.ollama_client import is_ollama_available, OLLAMA_MODEL
+    from app.ner.ollama_client import get_ollama_status, OLLAMA_MODEL
     import json as json_mod
 
-    ollama_ok = is_ollama_available()
+    ollama_status = get_ollama_status()
+    ollama_ok = ollama_status["available"]
 
     # Check spaCy
     spacy_ok = False
@@ -160,6 +161,9 @@ async def get_engine_status():
             "available": ollama_ok,
             "model": OLLAMA_MODEL,
             "url": "http://localhost:11434",
+            "service_running": ollama_status.get("service_running", False),
+            "model_ready": ollama_status.get("model_ready", False),
+            "reason": ollama_status.get("reason"),
         },
         "spacy": {
             "available": spacy_ok,
