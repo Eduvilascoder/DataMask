@@ -1,5 +1,6 @@
 {
   "engine": "ollama",
+  "ollama_prompt": "Analiza el siguiente texto y extrae TODOS los datos personales sensibles.\n\nDevuelve SOLO un JSON array con los datos encontrados. Cada elemento debe tener:\n- \"text\": el texto exacto encontrado (tal cual aparece)\n- \"type\": uno de: NOMBRE, DIRECCION\n\nReglas:\n- NOMBRE: nombres completos de personas (nombre + apellido). Incluye nombres en MAYÚSCULAS.\n- DIRECCION: direcciones postales, ciudades con país (ej: \"Santiago, Chile\"), calles con número.\n- NO incluyas: títulos de cargo, nombres de empresas, tecnologías, idiomas.\n- Si no hay datos sensibles, devuelve un array vacío: []\n\nTexto a analizar:\n---\n{text}\n---\n\nResponde SOLO con el JSON array, sin explicaciones:",
   "version": 2,
   "types": {
     "nombre": {

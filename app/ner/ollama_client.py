@@ -101,7 +101,9 @@ def get_ollama_status() -> dict:
         }
 
 
-def detect_with_ollama(text: str, page: int) -> list[DetectedEntity]:
+def detect_with_ollama(
+    text: str, page: int, prompt_template: str | None = None
+) -> list[DetectedEntity]:
     """Detecta nombres y direcciones usando Ollama (Llama 3.1 8B).
 
     Envía el texto al modelo local y parsea la respuesta JSON
@@ -110,6 +112,8 @@ def detect_with_ollama(text: str, page: int) -> list[DetectedEntity]:
     Args:
         text: Texto a analizar.
         page: Número de página.
+        prompt_template: Prompt personalizado con placeholder {text}.
+            Si no se proporciona, usa NER_PROMPT por defecto.
 
     Returns:
         Lista de entidades detectadas. Lista vacía si Ollama
@@ -122,7 +126,8 @@ def detect_with_ollama(text: str, page: int) -> list[DetectedEntity]:
     max_chars = 3000
     truncated = text[:max_chars] if len(text) > max_chars else text
 
-    prompt = NER_PROMPT.format(text=truncated)
+    template = prompt_template if prompt_template else NER_PROMPT
+    prompt = template.format(text=truncated)
 
     try:
         response = httpx.post(

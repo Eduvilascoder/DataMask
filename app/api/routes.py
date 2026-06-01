@@ -388,10 +388,12 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
 
     # Leer preferencia de motor desde la config
     configured_engine = "ollama"
+    ollama_prompt = None
     try:
         import json as _json
         raw_config = _json.loads(config_path.read_text(encoding="utf-8"))
         configured_engine = raw_config.get("engine", "ollama")
+        ollama_prompt = raw_config.get("ollama_prompt") or None
     except Exception:
         pass
 
@@ -402,6 +404,8 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         ner_engine = _get_ner_engine()
         # Actualizar config del motor NER con la configuración actual
         ner_engine.config = config
+        # Actualizar prompt personalizado
+        ner_engine._ollama_prompt = ollama_prompt
 
         # Respetar la preferencia de motor del usuario
         if configured_engine == "spacy":

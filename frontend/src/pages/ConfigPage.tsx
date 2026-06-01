@@ -12,6 +12,7 @@ import {
   Box,
   Modal,
   RadioGroup,
+  Textarea,
 } from '@cloudscape-design/components';
 
 interface TypeEntry {
@@ -34,6 +35,7 @@ interface FullConfig {
   custom_types: CustomType[];
   updated_at: string | null;
   engine?: string;
+  ollama_prompt?: string;
 }
 
 interface EngineStatus {
@@ -41,6 +43,25 @@ interface EngineStatus {
   spacy: { available: boolean; model: string };
   active_engine: string;
 }
+
+const DEFAULT_OLLAMA_PROMPT = `Analiza el siguiente texto y extrae TODOS los datos personales sensibles.
+
+Devuelve SOLO un JSON array con los datos encontrados. Cada elemento debe tener:
+- "text": el texto exacto encontrado (tal cual aparece)
+- "type": uno de: NOMBRE, DIRECCION
+
+Reglas:
+- NOMBRE: nombres completos de personas (nombre + apellido). Incluye nombres en MAYÚSCULAS.
+- DIRECCION: direcciones postales, ciudades con país (ej: "Santiago, Chile"), calles con número.
+- NO incluyas: títulos de cargo, nombres de empresas, tecnologías, idiomas.
+- Si no hay datos sensibles, devuelve un array vacío: []
+
+Texto a analizar:
+---
+{text}
+---
+
+Responde SOLO con el JSON array, sin explicaciones:`;
 
 const ConfigPage: React.FC = () => {
   const [config, setConfig] = useState<FullConfig | null>(null);
@@ -268,6 +289,37 @@ const ConfigPage: React.FC = () => {
               },
             ]}
           />
+        </SpaceBetween>
+      </Container>
+
+      <Container
+        header={
+          <Header variant="h2">
+            Prompt de Ollama
+          </Header>
+        }
+      >
+        <SpaceBetween size="s">
+          <FormField
+            description="Use {text} como placeholder para el texto del documento"
+          >
+            <Textarea
+              value={config?.ollama_prompt ?? DEFAULT_OLLAMA_PROMPT}
+              onChange={({ detail }) => {
+                if (!config) return;
+                setConfig({ ...config, ollama_prompt: detail.value });
+              }}
+              rows={12}
+            />
+          </FormField>
+          <Button
+            onClick={() => {
+              if (!config) return;
+              setConfig({ ...config, ollama_prompt: DEFAULT_OLLAMA_PROMPT });
+            }}
+          >
+            Restaurar prompt por defecto
+          </Button>
         </SpaceBetween>
       </Container>
 

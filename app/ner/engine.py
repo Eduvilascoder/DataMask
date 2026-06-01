@@ -46,16 +46,19 @@ class NEREngine:
         self,
         config: TypeConfig | None = None,
         model_name: str = "es_core_news_lg",
+        ollama_prompt: str | None = None,
     ) -> None:
         """Inicializa el motor NER.
 
         Args:
             config: Configuración de tipos activos/inactivos.
             model_name: Nombre del modelo spaCy (fallback).
+            ollama_prompt: Prompt personalizado para Ollama.
         """
         self._config = config or TypeConfig()
         self._active_types = self._resolve_active_types()
         self._ollama_available = is_ollama_available()
+        self._ollama_prompt = ollama_prompt
         self._spacy_nlp = None  # Lazy load solo si se necesita
 
         if self._ollama_available:
@@ -93,7 +96,9 @@ class NEREngine:
         """
         # Detección con Ollama (nombres y direcciones) o spaCy fallback
         if self._ollama_available:
-            semantic_entities = detect_with_ollama(text, page)
+            semantic_entities = detect_with_ollama(
+                text, page, prompt_template=self._ollama_prompt
+            )
         else:
             semantic_entities = self._detect_with_spacy(text, page)
 
