@@ -43,6 +43,25 @@ if %errorlevel% neq 0 (
 REM Crear carpetas necesarias si no existen
 if not exist "log\" mkdir log
 if not exist "ofuscados\" mkdir ofuscados
+if not exist "ofuscados_md\" mkdir ofuscados_md
+if not exist "test\" mkdir test
+if not exist "documentacion\" mkdir documentacion
+if not exist "models\" mkdir models
+if not exist "config\" mkdir config
+
+REM Iniciar Ollama en background si está disponible
+where ollama >nul 2>&1
+if %errorlevel% equ 0 (
+    curl -s http://localhost:11434/api/tags >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [OK] Iniciando Ollama en background...
+        start /b ollama serve >nul 2>&1
+        timeout /t 3 /nobreak >nul
+    )
+    echo [OK] Ollama activo ^(Llama 3.1 8B^)
+) else (
+    echo [INFO] Ollama no instalado - usando spaCy como fallback
+)
 if not exist "test\" mkdir test
 if not exist "documentacion\" mkdir documentacion
 if not exist "models\" mkdir models

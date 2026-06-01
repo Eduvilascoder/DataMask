@@ -242,11 +242,65 @@ if %DEPS_MISSING% equ 0 (
 echo.
 
 REM =============================================================================
-REM Descargar modelo spaCy con verificación de integridad
+REM Instalar Ollama y descargar modelo Llama 3.1 8B
 REM =============================================================================
 
 echo ============================================================
-echo   Descargando modelo de IA (spaCy es_core_news_lg)
+echo   Instalando Ollama y modelo Llama 3.1 8B
+echo ============================================================
+echo.
+
+REM Verificar si Ollama ya está instalado
+where ollama >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [AVISO] Ollama ya esta instalado.
+) else (
+    echo [INFO] Instalando Ollama...
+    echo [INFO] Descargando instalador de Ollama...
+    curl -fsSL -o "%TEMP%\OllamaSetup.exe" https://ollama.com/download/OllamaSetup.exe
+    if %errorlevel% equ 0 (
+        echo [INFO] Ejecutando instalador de Ollama...
+        echo [INFO] Siga las instrucciones del instalador si aparece una ventana.
+        start /wait "" "%TEMP%\OllamaSetup.exe" /SILENT
+        del "%TEMP%\OllamaSetup.exe" 2>nul
+        echo [OK] Ollama instalado correctamente
+    ) else (
+        echo [AVISO] No se pudo descargar Ollama automaticamente.
+        echo   Instale manualmente desde: https://ollama.com/download
+        echo   Luego ejecute: ollama pull llama3.1:8b
+        echo   La aplicacion funcionara con spaCy como fallback.
+    )
+)
+
+REM Descargar modelo Llama 3.1 8B
+where ollama >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [INFO] Verificando modelo Llama 3.1 8B...
+    ollama list 2>nul | findstr /i "llama3.1" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [AVISO] Modelo Llama 3.1 8B ya descargado.
+    ) else (
+        echo [INFO] Descargando modelo Llama 3.1 8B ^(~4.7GB^)...
+        echo [INFO] Este paso puede tardar 5-10 minutos dependiendo de su conexion...
+        ollama pull llama3.1:8b
+        if %errorlevel% equ 0 (
+            echo [OK] Modelo Llama 3.1 8B descargado correctamente
+        ) else (
+            echo [AVISO] No se pudo descargar el modelo.
+            echo   Intente manualmente: ollama pull llama3.1:8b
+            echo   La aplicacion funcionara con spaCy como fallback.
+        )
+    )
+)
+
+echo.
+
+REM =============================================================================
+REM Descargar modelo spaCy (fallback)
+REM =============================================================================
+
+echo ============================================================
+echo   Descargando modelo spaCy (fallback)
 echo ============================================================
 echo.
 
