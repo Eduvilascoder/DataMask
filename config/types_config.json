@@ -1,5 +1,5 @@
 {
-  "engine": "ollama",
+  "engine": "spacy",
   "version": 2,
   "types": {
     "nombre": {
@@ -61,5 +61,5 @@
       "description": "Detecta números de teléfono fijo con prefijo +56"
     }
   ],
-  "updated_at": "2026-06-01T02:34:44.752880+00:00"
+  "updated_at": "2026-06-01T02:55:29.160534+00:00"
 }

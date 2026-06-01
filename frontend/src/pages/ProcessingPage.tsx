@@ -116,10 +116,13 @@ const ProcessingPage: React.FC = () => {
         </Box>
       );
     } else if (engineStatus.active_engine === 'spacy') {
+      const isDisabledByConfig = (engineStatus as any).configured_engine === 'spacy';
       return (
         <Box margin={{ bottom: 's' }}>
-          <StatusIndicator type="warning">
-            spaCy activo (fallback)
+          <StatusIndicator type={isDisabledByConfig ? 'info' : 'warning'}>
+            {isDisabledByConfig
+              ? 'Ollama deshabilitado — usando spaCy (configurado por usuario)'
+              : 'spaCy activo (Ollama no disponible)'}
           </StatusIndicator>
         </Box>
       );

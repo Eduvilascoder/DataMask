@@ -119,6 +119,7 @@ class LogsResponse(BaseModel):
 async def get_engine_status():
     """Returns the status of the NER engines (Ollama and spaCy)."""
     from app.ner.ollama_client import is_ollama_available, OLLAMA_MODEL
+    import json as json_mod
 
     ollama_ok = is_ollama_available()
 
@@ -131,6 +132,29 @@ async def get_engine_status():
     except Exception:
         pass
 
+    # Read configured engine preference
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "types_config.json"
+    configured_engine = "ollama"  # default
+    try:
+        data = json_mod.loads(config_path.read_text(encoding="utf-8"))
+        configured_engine = data.get("engine", "ollama")
+    except Exception:
+        pass
+
+    # Determine active engine based on config AND availability
+    if configured_engine == "spacy":
+        active = "spacy" if spacy_ok else "none"
+    elif configured_engine == "ollama":
+        if ollama_ok:
+            active = "ollama"
+        elif spacy_ok:
+            active = "spacy"  # fallback
+        else:
+            active = "none"
+    else:
+        active = "spacy" if spacy_ok else "none"
+
     return {
         "ollama": {
             "available": ollama_ok,
@@ -141,7 +165,8 @@ async def get_engine_status():
             "available": spacy_ok,
             "model": "es_core_news_lg",
         },
-        "active_engine": "ollama" if ollama_ok else "spacy" if spacy_ok else "none",
+        "configured_engine": configured_engine,
+        "active_engine": active,
     }
 
 
@@ -357,6 +382,15 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
     config_service = ConfigService(config_path=config_path)
     config = config_service.load()
 
+    # Leer preferencia de motor desde la config
+    configured_engine = "ollama"
+    try:
+        import json as _json
+        raw_config = _json.loads(config_path.read_text(encoding="utf-8"))
+        configured_engine = raw_config.get("engine", "ollama")
+    except Exception:
+        pass
+
     # Usar NEREngine pre-cargado y PDFProcessor
     try:
         from app.pdf.processor import PDFProcessor
@@ -364,6 +398,12 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         ner_engine = _get_ner_engine()
         # Actualizar config del motor NER con la configuración actual
         ner_engine.config = config
+
+        # Respetar la preferencia de motor del usuario
+        if configured_engine == "spacy":
+            ner_engine._ollama_available = False
+        # Si es "ollama" pero no está disponible, ya cae a spaCy automáticamente
+
         processor = PDFProcessor(output_dir=output_dir, ner_engine=ner_engine)
     except (OSError, ImportError) as exc:
         error_msg = (
