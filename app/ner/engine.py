@@ -1,36 +1,23 @@
 """Motor NER para detección de entidades sensibles.
 
-Combina spaCy NER para nombres y direcciones con patrones regex
-para formatos argentinos específicos (DNI, CUIT/CUIL, teléfonos, etc.).
+Enfoque híbrido:
+- Ollama (Llama 3.1 8B) para nombres y direcciones (comprensión semántica)
+- Patrones regex para formatos estructurados (DNI, CUIT, email, teléfono, etc.)
+- Fallback a spaCy si Ollama no está disponible
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
-
-import spacy
-from spacy.language import Language
 
 from app.models import DetectedEntity, SensitiveDataType, TypeConfig
 from app.ner.patterns import detect_with_regex
-
-if TYPE_CHECKING:
-    from spacy.tokens import Doc
+from app.ner.ollama_client import detect_with_ollama, is_ollama_available
 
 logger = logging.getLogger(__name__)
 
-# Confianza por defecto para entidades spaCy sin score explícito
-SPACY_DEFAULT_CONFIDENCE = 0.85
-
 # Umbral mínimo de confianza para incluir una entidad
 CONFIDENCE_THRESHOLD = 0.70
-
-# Mapeo de etiquetas spaCy a tipos de datos sensibles
-_SPACY_LABEL_MAP: dict[str, SensitiveDataType] = {
-    "PER": SensitiveDataType.NOMBRE,
-    "LOC": SensitiveDataType.DIRECCION,
-}
 
 # Mapeo de campo TypeConfig a SensitiveDataType
 _TYPE_CONFIG_MAP: dict[str, SensitiveDataType] = {
@@ -50,25 +37,35 @@ _TYPE_CONFIG_MAP: dict[str, SensitiveDataType] = {
 class NEREngine:
     """Motor de detección de entidades sensibles.
 
-    Combina spaCy NER para nombres y direcciones con
-    patrones regex para formatos argentinos específicos.
+    Usa Ollama (Llama 3.1 8B) para nombres y direcciones,
+    y patrones regex para formatos argentinos específicos.
+    Si Ollama no está disponible, cae a spaCy como fallback.
     """
 
     def __init__(
         self,
-        model_name: str = "es_core_news_lg",
         config: TypeConfig | None = None,
+        model_name: str = "es_core_news_lg",
     ) -> None:
-        """Inicializa el motor NER cargando el modelo spaCy.
+        """Inicializa el motor NER.
 
         Args:
-            model_name: Nombre del modelo spaCy a cargar.
             config: Configuración de tipos activos/inactivos.
-                Si es None, se usan todos los tipos activos.
+            model_name: Nombre del modelo spaCy (fallback).
         """
         self._config = config or TypeConfig()
-        self._nlp = self._load_model(model_name)
         self._active_types = self._resolve_active_types()
+        self._ollama_available = is_ollama_available()
+        self._spacy_nlp = None  # Lazy load solo si se necesita
+
+        if self._ollama_available:
+            logger.info("Ollama disponible — usando Llama 3.1 8B para NER")
+        else:
+            logger.warning(
+                "Ollama no disponible — usando spaCy como fallback. "
+                "Para mejor detección, inicie Ollama: ollama serve"
+            )
+            self._load_spacy_fallback(model_name)
 
     @property
     def config(self) -> TypeConfig:
@@ -94,11 +91,17 @@ class NEREngine:
         Returns:
             Lista de entidades detectadas, filtradas y sin conflictos.
         """
-        spacy_entities = self._detect_with_spacy(text, page)
+        # Detección con Ollama (nombres y direcciones) o spaCy fallback
+        if self._ollama_available:
+            semantic_entities = detect_with_ollama(text, page)
+        else:
+            semantic_entities = self._detect_with_spacy(text, page)
+
+        # Detección con regex (formatos estructurados)
         regex_entities = detect_with_regex(text, page)
 
         # Combinar ambas fuentes
-        all_entities = spacy_entities + regex_entities
+        all_entities = semantic_entities + regex_entities
 
         # Filtrar por tipos activos
         all_entities = self._filter_by_active_types(all_entities)
@@ -158,68 +161,41 @@ class NEREngine:
         # Fusionar entidades adyacentes del mismo tipo
         return self._merge_adjacent_same_type(expanded, text)
 
-    def _load_model(self, model_name: str) -> Language:
-        """Carga el modelo spaCy especificado.
-
-        Args:
-            model_name: Nombre del modelo a cargar.
-
-        Returns:
-            Modelo spaCy cargado.
-
-        Raises:
-            OSError: Si el modelo no está instalado.
-        """
+    def _load_spacy_fallback(self, model_name: str) -> None:
+        """Carga spaCy como fallback cuando Ollama no está disponible."""
         try:
-            nlp = spacy.load(model_name)
-            logger.info("Modelo spaCy '%s' cargado correctamente.", model_name)
-            return nlp
-        except OSError:
-            logger.error(
-                "No se pudo cargar el modelo spaCy '%s'. "
-                "Ejecute: python -m spacy download %s",
-                model_name,
-                model_name,
-            )
-            raise
+            import spacy
+            self._spacy_nlp = spacy.load(model_name)
+            logger.info("spaCy '%s' cargado como fallback.", model_name)
+        except (OSError, ImportError) as exc:
+            logger.error("No se pudo cargar spaCy: %s", exc)
+            self._spacy_nlp = None
 
     def _resolve_active_types(self) -> set[SensitiveDataType]:
-        """Calcula el conjunto de tipos activos según la configuración.
-
-        Returns:
-            Set de SensitiveDataType que están habilitados.
-        """
+        """Calcula el conjunto de tipos activos según la configuración."""
         active: set[SensitiveDataType] = set()
         config_dict = self._config.model_dump()
-
         for field_name, data_type in _TYPE_CONFIG_MAP.items():
             if config_dict.get(field_name, True):
                 active.add(data_type)
-
         return active
 
     def _detect_with_spacy(self, text: str, page: int) -> list[DetectedEntity]:
-        """Usa spaCy para detectar PER (nombres) y LOC (direcciones).
+        """Fallback: usa spaCy para detectar PER y LOC."""
+        if self._spacy_nlp is None:
+            return []
 
-        Estrategia multi-pasada:
-        1. Procesa el texto original con spaCy
-        2. Procesa una versión normalizada (sin acentos, title case)
-           para detectar nombres en mayúsculas o con acentos
-        3. Mapea las posiciones de vuelta al texto original
-
-        Args:
-            text: Texto a analizar.
-            page: Número de página.
-
-        Returns:
-            Lista de entidades detectadas por spaCy.
-        """
         import unicodedata
+
+        _SPACY_LABEL_MAP = {
+            "PER": SensitiveDataType.NOMBRE,
+            "LOC": SensitiveDataType.DIRECCION,
+        }
 
         entities: list[DetectedEntity] = []
 
-        # --- Pasada 1: texto original ---
-        doc: Doc = self._nlp(text)
+        # Pasada 1: texto original
+        doc = self._spacy_nlp(text)
         for ent in doc.ents:
             data_type = _SPACY_LABEL_MAP.get(ent.label_)
             if data_type is None:
@@ -229,62 +205,43 @@ class NEREngine:
                 entity_type=data_type,
                 start=ent.start_char,
                 end=ent.end_char,
-                confidence=SPACY_DEFAULT_CONFIDENCE,
+                confidence=0.85,
                 page=page,
             ))
 
-        # --- Pasada 2: texto normalizado (sin acentos, title case) ---
-        # Esto mejora la detección de nombres en MAYÚSCULAS y con acentos
+        # Pasada 2: texto normalizado (sin acentos, title case)
         def remove_accents(s: str) -> str:
             nfkd = unicodedata.normalize("NFKD", s)
             return "".join(c for c in nfkd if not unicodedata.combining(c))
 
-        # Procesar línea por línea para mapear posiciones correctamente
         lines = text.split("\n")
         offset = 0
         for line in lines:
-            stripped = line
-            if not stripped.strip():
-                offset += len(line) + 1  # +1 for \n
+            if not line.strip():
+                offset += len(line) + 1
                 continue
-
-            # Normalizar: quitar acentos y convertir a title case
-            normalized = remove_accents(stripped).title()
-
-            # Solo re-procesar si es diferente al original
-            if normalized != stripped:
-                doc_norm: Doc = self._nlp(normalized)
+            normalized = remove_accents(line).title()
+            if normalized != line:
+                doc_norm = self._spacy_nlp(normalized)
                 for ent in doc_norm.ents:
                     data_type = _SPACY_LABEL_MAP.get(ent.label_)
                     if data_type is None:
                         continue
-
-                    # Mapear posición al texto original
                     start = offset + ent.start_char
                     end = offset + ent.end_char
-
-                    # Verificar que no excede el texto
-                    if end > len(text):
-                        end = len(text)
-                    if start >= len(text):
+                    if end > len(text) or start >= len(text):
                         continue
-
                     original_text = text[start:end]
-                    if not original_text.strip():
-                        continue
-
-                    entities.append(DetectedEntity(
-                        text=original_text,
-                        entity_type=data_type,
-                        start=start,
-                        end=end,
-                        confidence=SPACY_DEFAULT_CONFIDENCE * 0.9,
-                        page=page,
-                    ))
-
-            offset += len(line) + 1  # +1 for \n
-
-        return entities
+                    if original_text.strip():
+                        entities.append(DetectedEntity(
+                            text=original_text,
+                            entity_type=data_type,
+                            start=start,
+                            end=end,
+                            confidence=0.80,
+                            page=page,
+                        ))
+            offset += len(line) + 1
 
         return entities
 
@@ -420,6 +377,74 @@ class NEREngine:
                 merged.append(current)
 
         return merged
+
+    def _detect_uppercase_names(self, text: str, page: int) -> list[DetectedEntity]:
+        """Detecta nombres propios en líneas completamente en mayúsculas.
+
+        Heurística: una línea con 2-5 palabras en mayúsculas, sin números,
+        sin palabras comunes (SOLUTIONS, ARCHITECT, etc.) es probablemente
+        un nombre completo. Común en CVs y documentos formales.
+
+        Args:
+            text: Texto a analizar.
+            page: Número de página.
+
+        Returns:
+            Lista de entidades detectadas como nombres.
+        """
+        # Palabras comunes que NO son nombres (títulos, roles, etc.)
+        _NON_NAME_WORDS = {
+            "SOLUTIONS", "ARCHITECT", "ENGINEER", "MANAGER", "DIRECTOR",
+            "SENIOR", "JUNIOR", "LEAD", "HEAD", "CHIEF", "OFFICER",
+            "CONSULTANT", "SPECIALIST", "ANALYST", "DEVELOPER", "DESIGNER",
+            "PROFESSIONAL", "EXECUTIVE", "SUMMARY", "EXPERIENCE", "EDUCATION",
+            "SKILLS", "CONTACT", "LANGUAGES", "VISION", "CONFIDENTIAL",
+            "WORK", "TECHNICAL", "CERTIFICATIONS", "COURSES", "PRODUCTS",
+            "INTEGRATION", "SYSTEM", "SYSTEMS", "PROGRAMMING", "DATABASE",
+            "SECURITY", "MIDDLEWARE", "CLOUD", "PLATFORM", "SERVICES",
+            "SOFT", "HARD", "FORMULARIO", "CONTRATO", "FICHA", "REGISTRO",
+            "DATOS", "PERSONALES", "INFORMACION", "LABORAL", "FINANCIEROS",
+            "OBSERVACIONES", "CLAUSULAS", "PARTES", "INTERVINIENTES",
+            "PRESTADOR", "EMPLEADO", "AREA", "CARGO", "MODALIDAD",
+            "COMPLEJO", "EDUCACIONAL", "ENSEÑANZA", "MEDIA", "ANALISTA",
+            "PROGRAMADOR", "API", "IBM", "IT", "PRODUCT",
+        }
+
+        entities: list[DetectedEntity] = []
+        lines = text.split("\n")
+        offset = 0
+
+        for line in lines:
+            stripped = line.strip()
+            offset_start = text.find(line, offset)
+            if offset_start == -1:
+                offset += len(line) + 1
+                continue
+
+            # Verificar: línea en mayúsculas, 2-5 palabras, sin números
+            words = stripped.split()
+            if (
+                2 <= len(words) <= 5
+                and stripped == stripped.upper()
+                and stripped.replace(" ", "").isalpha()
+                and not any(w in _NON_NAME_WORDS for w in words)
+                and all(len(w) >= 2 for w in words)
+            ):
+                # Parece un nombre completo
+                start = offset_start + (len(line) - len(line.lstrip()))
+                end = start + len(stripped)
+                entities.append(DetectedEntity(
+                    text=stripped,
+                    entity_type=SensitiveDataType.NOMBRE,
+                    start=start,
+                    end=end,
+                    confidence=0.80,
+                    page=page,
+                ))
+
+            offset = offset_start + len(line) + 1
+
+        return entities
 
     @staticmethod
     def _entities_overlap(a: DetectedEntity, b: DetectedEntity) -> bool:

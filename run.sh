@@ -46,7 +46,19 @@ if ! command -v uvicorn &> /dev/null; then
 fi
 
 # Crear carpetas necesarias si no existen
-mkdir -p log ofuscados test documentacion models config
+mkdir -p log ofuscados ofuscados_md test documentacion models config
+
+# Iniciar Ollama en background si está disponible
+if command -v ollama &> /dev/null; then
+    if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+        echo -e "${GREEN}→ Iniciando Ollama en background...${NC}"
+        ollama serve > /dev/null 2>&1 &
+        sleep 2
+    fi
+    echo -e "${GREEN}→ Ollama activo (Llama 3.1 8B)${NC}"
+else
+    echo -e "${BLUE}→ Ollama no instalado — usando spaCy como fallback${NC}"
+fi
 
 echo -e "${GREEN}→ Iniciando servidor en http://localhost:${PORT}${NC}"
 echo -e "${GREEN}→ Presione Ctrl+C para detener el servidor${NC}"

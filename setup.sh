@@ -254,10 +254,50 @@ else
 fi
 
 # =============================================================================
-# Descargar modelo spaCy con verificación de integridad
+# Instalar Ollama y descargar modelo Llama 3.1 8B
 # =============================================================================
 
-print_header "Descargando modelo de IA (spaCy es_core_news_lg)"
+print_header "Instalando Ollama y modelo Llama 3.1 8B"
+
+# Verificar si Ollama ya está instalado
+if check_command ollama; then
+    print_warning "Ollama ya está instalado."
+else
+    print_info "Instalando Ollama..."
+    if curl -fsSL https://ollama.com/install.sh | sh; then
+        print_success "Ollama instalado correctamente"
+    else
+        print_error "No se pudo instalar Ollama automáticamente."
+        echo "  Instale manualmente desde: https://ollama.com/download"
+        echo "  Luego ejecute: ollama pull llama3.1:8b"
+        echo ""
+        echo "  La aplicación funcionará con spaCy como fallback."
+    fi
+fi
+
+# Descargar modelo Llama 3.1 8B si Ollama está disponible
+if check_command ollama; then
+    # Verificar si el modelo ya está descargado
+    if ollama list 2>/dev/null | grep -q "llama3.1"; then
+        print_warning "Modelo Llama 3.1 8B ya descargado."
+    else
+        print_info "Descargando modelo Llama 3.1 8B (~4.7GB)..."
+        print_info "Este paso puede tardar 5-10 minutos dependiendo de su conexión..."
+        if ollama pull llama3.1:8b; then
+            print_success "Modelo Llama 3.1 8B descargado correctamente"
+        else
+            print_error "No se pudo descargar el modelo."
+            echo "  Intente manualmente: ollama pull llama3.1:8b"
+            echo "  La aplicación funcionará con spaCy como fallback."
+        fi
+    fi
+fi
+
+# =============================================================================
+# Descargar modelo spaCy (fallback)
+# =============================================================================
+
+print_header "Descargando modelo spaCy (fallback)"
 
 print_info "Este paso puede tardar varios minutos dependiendo de su conexión..."
 
