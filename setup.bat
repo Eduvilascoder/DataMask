@@ -48,12 +48,30 @@ if %errorlevel% equ 0 (
     )
 )
 
-if "%PYTHON_CMD%"=="" (
-    echo [ERROR] Python no encontrado.
-    echo   Instale Python %MIN_PYTHON_MAJOR%.%MIN_PYTHON_MINOR% o superior desde:
-    echo     https://www.python.org/downloads/
-    echo   Asegurese de marcar "Add Python to PATH" durante la instalacion.
-    exit /b 1
+if "!PYTHON_CMD!"=="" (
+    echo [INFO] Python no encontrado. Instalando automaticamente...
+    echo [INFO] Descargando Python 3.12...
+    curl -fsSL -o "%TEMP%\python-setup.exe" "https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe"
+    if !errorlevel! neq 0 (
+        echo [ERROR] No se pudo descargar Python.
+        echo   Instale manualmente desde: https://www.python.org/downloads/
+        echo   Asegurese de marcar "Add Python to PATH".
+        exit /b 1
+    )
+    echo [INFO] Instalando Python 3.12 ^(esto puede tardar un minuto^)...
+    "%TEMP%\python-setup.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1
+    del "%TEMP%\python-setup.exe" 2>nul
+    REM Refrescar PATH
+    set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
+    where python >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=python"
+        echo [OK] Python instalado correctamente
+    ) else (
+        echo [ERROR] Python se instalo pero no se encuentra en el PATH.
+        echo   Cierre esta terminal, abra una nueva y ejecute setup.bat de nuevo.
+        exit /b 1
+    )
 )
 
 REM Verificar versión de Python
@@ -83,25 +101,32 @@ REM Verificar Node.js
 echo [INFO] Verificando Node.js...
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js no encontrado.
-    echo   Instale Node.js %MIN_NODE_MAJOR% o superior desde:
-    echo     https://nodejs.org/
-    exit /b 1
+    echo [INFO] Node.js no encontrado. Instalando automaticamente...
+    echo [INFO] Descargando Node.js LTS...
+    curl -fsSL -o "%TEMP%\node-setup.msi" "https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi"
+    if !errorlevel! neq 0 (
+        echo [ERROR] No se pudo descargar Node.js.
+        echo   Instale manualmente desde: https://nodejs.org/
+        exit /b 1
+    )
+    echo [INFO] Instalando Node.js...
+    msiexec /i "%TEMP%\node-setup.msi" /qn /norestart
+    del "%TEMP%\node-setup.msi" 2>nul
+    REM Refrescar PATH
+    set "PATH=%PATH%;C:\Program Files\nodejs"
+    where node >nul 2>&1
+    if !errorlevel! neq 0 (
+        echo [ERROR] Node.js se instalo pero no se encuentra en el PATH.
+        echo   Cierre esta terminal, abra una nueva y ejecute setup.bat de nuevo.
+        exit /b 1
+    )
+    echo [OK] Node.js instalado correctamente
 )
 
 for /f "tokens=1 delims=." %%a in ('node --version') do set "NODE_VERSION_RAW=%%a"
-REM Eliminar el prefijo 'v' del major version
-set "NODE_MAJOR=%NODE_VERSION_RAW:v=%"
-
+set "NODE_MAJOR=!NODE_VERSION_RAW:v=!"
 for /f "delims=" %%v in ('node --version') do set "NODE_VERSION_DISPLAY=%%v"
-
-if !NODE_MAJOR! lss %MIN_NODE_MAJOR% (
-    echo [ERROR] Node.js %NODE_VERSION_DISPLAY% encontrado, pero se requiere ^>= v%MIN_NODE_MAJOR%
-    echo   Descargue la version mas reciente desde:
-    echo     https://nodejs.org/
-    exit /b 1
-)
-echo [OK] Node.js %NODE_VERSION_DISPLAY% encontrado
+echo [OK] Node.js !NODE_VERSION_DISPLAY! encontrado
 
 REM Verificar npm
 echo [INFO] Verificando npm...

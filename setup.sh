@@ -88,11 +88,18 @@ elif check_command python; then
 fi
 
 if [ -z "$PYTHON_CMD" ]; then
-    print_error "Python 3 no encontrado."
-    echo "  Instale Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR} o superior:"
-    echo "    brew install python3"
-    echo "  O descargue desde: https://www.python.org/downloads/"
-    exit 1
+    print_info "Python 3 no encontrado. Intentando instalar..."
+    if check_command brew; then
+        brew install python3
+        PYTHON_CMD="python3"
+    else
+        print_error "No se pudo instalar Python automáticamente (Homebrew no disponible)."
+        echo "  Instale Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR} o superior:"
+        echo "    1. Instale Homebrew: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        echo "    2. Luego: brew install python3"
+        echo "  O descargue desde: https://www.python.org/downloads/"
+        exit 1
+    fi
 fi
 
 # Verificar versión de Python
@@ -112,11 +119,24 @@ print_success "Python $PYTHON_VERSION encontrado"
 # Verificar Node.js
 print_info "Verificando Node.js..."
 if ! check_command node; then
-    print_error "Node.js no encontrado."
-    echo "  Instale Node.js ${MIN_NODE_MAJOR} o superior:"
-    echo "    brew install node"
-    echo "  O descargue desde: https://nodejs.org/"
-    exit 1
+    print_info "Node.js no encontrado. Intentando instalar..."
+    if check_command brew; then
+        brew install node
+    else
+        print_info "Intentando instalar Node.js via script oficial..."
+        curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        nvm install 20
+    fi
+    if ! check_command node; then
+        print_error "No se pudo instalar Node.js automáticamente."
+        echo "  Instale Node.js ${MIN_NODE_MAJOR} o superior:"
+        echo "    brew install node"
+        echo "  O descargue desde: https://nodejs.org/"
+        exit 1
+    fi
+    print_success "Node.js instalado correctamente"
 fi
 
 NODE_VERSION=$(node --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
