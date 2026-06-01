@@ -11,133 +11,96 @@ echo ============================================================
 echo   DataMask - Correccion de PATH
 echo ============================================================
 echo.
-echo   Este script agrega al PATH del sistema las rutas de:
-echo   - Python (si esta instalado pero no en PATH)
-echo   - Node.js (portable en carpeta node\)
-echo   - Ollama (si esta instalado pero no en PATH)
-echo.
 
 set "SCRIPT_DIR=%~dp0"
-set "FIXES_APPLIED=0"
+set "FIXES=0"
 
 REM =============================================================================
-REM Buscar y agregar Python al PATH
+REM Buscar Ollama
 REM =============================================================================
 
-echo [INFO] Verificando Python...
-where python >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Python ya esta en el PATH.
+echo [INFO] Buscando Ollama...
+set "OLLAMA_DIR="
+if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" set "OLLAMA_DIR=%LOCALAPPDATA%\Programs\Ollama"
+if exist "%ProgramFiles%\Ollama\ollama.exe" set "OLLAMA_DIR=%ProgramFiles%\Ollama"
+if exist "%USERPROFILE%\AppData\Local\Ollama\ollama.exe" set "OLLAMA_DIR=%USERPROFILE%\AppData\Local\Ollama"
+
+if not "!OLLAMA_DIR!"=="" (
+    echo [OK] Ollama encontrado en: !OLLAMA_DIR!
+    echo [FIX] Agregando al PATH del usuario via PowerShell...
+    powershell -Command "$p = [Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike '*Ollama*') { [Environment]::SetEnvironmentVariable('Path', $p + ';!OLLAMA_DIR!', 'User'); Write-Host 'Agregado' } else { Write-Host 'Ya estaba' }"
+    set "PATH=!PATH!;!OLLAMA_DIR!"
+    set /a FIXES+=1
 ) else (
-    set "PY_PATH="
-    for %%P in (
-        "%LOCALAPPDATA%\Programs\Python\Python313"
-        "%LOCALAPPDATA%\Programs\Python\Python312"
-        "%LOCALAPPDATA%\Programs\Python\Python311"
-        "%LOCALAPPDATA%\Programs\Python\Python310"
-        "%LOCALAPPDATA%\Programs\Python\Python39"
-        "C:\Python312"
-        "C:\Python311"
-        "%ProgramFiles%\Python312"
-        "%ProgramFiles%\Python311"
-    ) do (
-        if "!PY_PATH!"=="" (
-            if exist "%%~P\python.exe" set "PY_PATH=%%~P"
-        )
-    )
-    if not "!PY_PATH!"=="" (
-        echo [FIX] Python encontrado en: !PY_PATH!
-        echo [FIX] Agregando al PATH del usuario...
-        setx PATH "%PATH%;!PY_PATH!;!PY_PATH!\Scripts" >nul 2>&1
-        set "PATH=!PATH!;!PY_PATH!;!PY_PATH!\Scripts"
-        set /a FIXES_APPLIED+=1
-        echo [OK] Python agregado al PATH.
-    ) else (
-        echo [AVISO] Python no encontrado. Instale desde: https://www.python.org/downloads/
-    )
+    echo [AVISO] Ollama no encontrado. Instale desde: https://ollama.com/download
 )
 
 REM =============================================================================
-REM Buscar y agregar Node.js al PATH
+REM Buscar Node.js
 REM =============================================================================
 
-echo [INFO] Verificando Node.js...
-where node >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Node.js ya esta en el PATH.
+echo [INFO] Buscando Node.js...
+set "NODE_DIR="
+if exist "%SCRIPT_DIR%node\node.exe" set "NODE_DIR=%SCRIPT_DIR%node"
+if exist "C:\Program Files\nodejs\node.exe" set "NODE_DIR=C:\Program Files\nodejs"
+
+if not "!NODE_DIR!"=="" (
+    echo [OK] Node.js encontrado en: !NODE_DIR!
+    echo [FIX] Agregando al PATH del usuario via PowerShell...
+    powershell -Command "$p = [Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike '*nodejs*' -and $p -notlike '*\node*') { [Environment]::SetEnvironmentVariable('Path', $p + ';!NODE_DIR!', 'User'); Write-Host 'Agregado' } else { Write-Host 'Ya estaba' }"
+    set "PATH=!PATH!;!NODE_DIR!"
+    set /a FIXES+=1
 ) else (
-    if exist "%SCRIPT_DIR%node\node.exe" (
-        echo [FIX] Node.js portable encontrado en: %SCRIPT_DIR%node\
-        echo [FIX] Agregando al PATH del usuario...
-        setx PATH "%PATH%;%SCRIPT_DIR%node" >nul 2>&1
-        set "PATH=!PATH!;%SCRIPT_DIR%node"
-        set /a FIXES_APPLIED+=1
-        echo [OK] Node.js agregado al PATH.
-    ) else if exist "C:\Program Files\nodejs\node.exe" (
-        echo [FIX] Node.js encontrado en: C:\Program Files\nodejs\
-        echo [FIX] Agregando al PATH del usuario...
-        setx PATH "%PATH%;C:\Program Files\nodejs" >nul 2>&1
-        set "PATH=!PATH!;C:\Program Files\nodejs"
-        set /a FIXES_APPLIED+=1
-        echo [OK] Node.js agregado al PATH.
-    ) else (
-        echo [AVISO] Node.js no encontrado. Ejecute setup.bat para instalarlo.
-    )
+    echo [AVISO] Node.js no encontrado. Ejecute setup.bat para instalarlo.
 )
 
 REM =============================================================================
-REM Buscar y agregar Ollama al PATH
+REM Buscar Python
 REM =============================================================================
 
-echo [INFO] Verificando Ollama...
-where ollama >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Ollama ya esta en el PATH.
+echo [INFO] Buscando Python...
+set "PY_DIR="
+for %%P in (
+    "%LOCALAPPDATA%\Programs\Python\Python313"
+    "%LOCALAPPDATA%\Programs\Python\Python312"
+    "%LOCALAPPDATA%\Programs\Python\Python311"
+    "%LOCALAPPDATA%\Programs\Python\Python310"
+    "%LOCALAPPDATA%\Programs\Python\Python39"
+) do (
+    if "!PY_DIR!"=="" (
+        if exist "%%~P\python.exe" set "PY_DIR=%%~P"
+    )
+)
+
+if not "!PY_DIR!"=="" (
+    echo [OK] Python encontrado en: !PY_DIR!
+    echo [FIX] Agregando al PATH del usuario via PowerShell...
+    powershell -Command "$p = [Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike '*Python3*') { [Environment]::SetEnvironmentVariable('Path', $p + ';!PY_DIR!;!PY_DIR!\Scripts', 'User'); Write-Host 'Agregado' } else { Write-Host 'Ya estaba' }"
+    set "PATH=!PATH!;!PY_DIR!;!PY_DIR!\Scripts"
+    set /a FIXES+=1
 ) else (
-    set "OLLAMA_PATH="
-    if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" set "OLLAMA_PATH=%LOCALAPPDATA%\Programs\Ollama"
-    if exist "%ProgramFiles%\Ollama\ollama.exe" set "OLLAMA_PATH=%ProgramFiles%\Ollama"
-    if exist "%USERPROFILE%\AppData\Local\Ollama\ollama.exe" set "OLLAMA_PATH=%USERPROFILE%\AppData\Local\Ollama"
-
-    if not "!OLLAMA_PATH!"=="" (
-        echo [FIX] Ollama encontrado en: !OLLAMA_PATH!
-        echo [FIX] Agregando al PATH del usuario...
-        setx PATH "%PATH%;!OLLAMA_PATH!" >nul 2>&1
-        set "PATH=!PATH!;!OLLAMA_PATH!"
-        set /a FIXES_APPLIED+=1
-        echo [OK] Ollama agregado al PATH.
-    ) else (
-        echo [AVISO] Ollama no encontrado. Instale desde: https://ollama.com/download
-    )
+    echo [AVISO] Python no encontrado.
 )
 
 REM =============================================================================
-REM Desactivar alias de Microsoft Store para Python
-REM =============================================================================
-
-echo [INFO] Verificando alias de Microsoft Store...
-if exist "%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe" (
-    echo [AVISO] Alias de Microsoft Store detectado para Python.
-    echo   Para desactivarlo manualmente:
-    echo     Configuracion ^> Aplicaciones ^> Alias de ejecucion
-    echo     Desactive "python.exe" y "python3.exe"
-)
-
-REM =============================================================================
-REM Resumen
+REM Verificacion final
 REM =============================================================================
 
 echo.
 echo ============================================================
-if !FIXES_APPLIED! gtr 0 (
-    echo   Se aplicaron !FIXES_APPLIED! correcciones al PATH.
-    echo   Los cambios son permanentes para nuevas terminales.
-    echo.
-    echo   Para usar los cambios en ESTA terminal, cierre y abra
-    echo   una nueva, o ejecute run.bat directamente ^(ya funciona^).
-) else (
-    echo   No se necesitaron correcciones. Todo esta en el PATH.
-)
+echo   Verificacion:
+echo ============================================================
+echo.
+
+ollama --version 2>nul && echo [OK] Ollama funciona || echo [X] Ollama no responde
+node --version 2>nul && echo [OK] Node.js funciona || echo [X] Node.js no responde
+python --version 2>nul && echo [OK] Python funciona || echo [X] Python no responde (puede ser alias MS Store)
+
+echo.
+echo ============================================================
+echo   Listo. Si algo no funciona en ESTA terminal,
+echo   cierre y abra una nueva terminal.
+echo   run.bat funciona sin importar el PATH del sistema.
 echo ============================================================
 echo.
 
