@@ -54,11 +54,11 @@
   },
   "custom_types": [
     {
-      "id": "[telefono]",
+      "id": "telefono_chile",
       "enabled": true,
-      "label": "[TELEFONO]",
+      "label": "TELEFONO CHILE",
       "description": "Detecta números de teléfono fijo con prefijo +56"
     }
   ],
-  "updated_at": "2026-05-29T19:10:39.076010+00:00"
+  "updated_at": "2026-06-01T00:22:09.844917+00:00"
 }

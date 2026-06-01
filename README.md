@@ -120,6 +120,16 @@ DataMask/
 - **Frontend:** React, TypeScript, Cloudscape Design System
 - **IA:** spaCy `es_core_news_lg` (modelo español) + patrones regex
 
+### Modelo de IA
+
+DataMask usa **spaCy `es_core_news_lg`** — un modelo de procesamiento de lenguaje natural entrenado en español con ~560MB. Es un pipeline CNN (Convolutional Neural Network) entrenado en el corpus AnCora y WikiNER que incluye:
+
+- **NER (Named Entity Recognition):** detecta personas (PER) y ubicaciones (LOC) en texto español
+- **F-score NER:** ~0.89 en el benchmark de evaluación
+- **Complemento regex:** patrones de expresiones regulares para formatos estructurados (DNI, CUIT, teléfonos, emails, tarjetas, CBU, pasaportes) que el modelo NER no cubre
+
+El modelo se descarga una sola vez durante la instalación y se ejecuta 100% local — no requiere conexión a internet ni envía datos a ningún servidor.
+
 ---
 
 **DataMask v1.0** — by [EduTheCoder](https://github.com/Eduvilascoder)

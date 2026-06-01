@@ -107,7 +107,56 @@ class NEREngine:
         all_entities = self._filter_by_confidence(all_entities)
 
         # Resolver conflictos de solapamiento
-        return self._resolve_conflicts(all_entities)
+        resolved = self._resolve_conflicts(all_entities)
+
+        # Limpiar entidades que contienen newlines (cortarlas)
+        cleaned: list[DetectedEntity] = []
+        for ent in resolved:
+            if "\n" in ent.text:
+                # Tomar solo la parte antes del newline
+                first_line = ent.text.split("\n")[0].strip()
+                if first_line:
+                    cleaned.append(DetectedEntity(
+                        text=first_line,
+                        entity_type=ent.entity_type,
+                        start=ent.start,
+                        end=ent.start + len(first_line),
+                        confidence=ent.confidence,
+                        page=ent.page,
+                    ))
+            else:
+                cleaned.append(ent)
+
+        # Expandir entidades LOC para incluir "Ciudad, País" completo
+        expanded: list[DetectedEntity] = []
+        for ent in cleaned:
+            if ent.entity_type == SensitiveDataType.DIRECCION:
+                # Buscar si hay texto tipo "Ciudad, " antes de la entidad en la misma línea
+                # Ejemplo: "Santiago, Chile" → expandir para cubrir "Santiago, Chile"
+                # Solo buscar en la misma línea (no cruzar newlines)
+                line_start = text.rfind("\n", 0, ent.start)
+                line_start = line_start + 1 if line_start != -1 else 0
+                prefix = text[line_start:ent.start]
+                # Buscar patrón "Palabra, " al final del prefix
+                import re as _re
+                match = _re.search(r'([A-ZÁÉÍÓÚÑa-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]+)*),\s*$', prefix)
+                if match:
+                    new_start = ent.start - len(match.group(0))
+                    expanded.append(DetectedEntity(
+                        text=text[new_start:ent.end],
+                        entity_type=ent.entity_type,
+                        start=new_start,
+                        end=ent.end,
+                        confidence=ent.confidence,
+                        page=ent.page,
+                    ))
+                else:
+                    expanded.append(ent)
+            else:
+                expanded.append(ent)
+
+        # Fusionar entidades adyacentes del mismo tipo
+        return self._merge_adjacent_same_type(expanded)
 
     def _load_model(self, model_name: str) -> Language:
         """Carga el modelo spaCy especificado.
@@ -152,8 +201,11 @@ class NEREngine:
     def _detect_with_spacy(self, text: str, page: int) -> list[DetectedEntity]:
         """Usa spaCy para detectar PER (nombres) y LOC (direcciones).
 
-        También procesa una versión en title case del texto para
-        detectar nombres escritos en mayúsculas completas.
+        Estrategia multi-pasada:
+        1. Procesa el texto original con spaCy
+        2. Procesa una versión normalizada (sin acentos, title case)
+           para detectar nombres en mayúsculas o con acentos
+        3. Mapea las posiciones de vuelta al texto original
 
         Args:
             text: Texto a analizar.
@@ -162,71 +214,77 @@ class NEREngine:
         Returns:
             Lista de entidades detectadas por spaCy.
         """
-        doc: Doc = self._nlp(text)
+        import unicodedata
+
         entities: list[DetectedEntity] = []
 
+        # --- Pasada 1: texto original ---
+        doc: Doc = self._nlp(text)
         for ent in doc.ents:
             data_type = _SPACY_LABEL_MAP.get(ent.label_)
             if data_type is None:
                 continue
-
-            # Usar score de la entidad si está disponible,
-            # de lo contrario usar confianza por defecto
-            confidence = SPACY_DEFAULT_CONFIDENCE
-            if hasattr(ent, "kb_id_") and ent.kb_id_:
-                try:
-                    score = float(ent.kb_id_)
-                    if 0.0 <= score <= 1.0:
-                        confidence = score
-                except (ValueError, TypeError):
-                    pass
-
-            entity = DetectedEntity(
+            entities.append(DetectedEntity(
                 text=ent.text,
                 entity_type=data_type,
                 start=ent.start_char,
                 end=ent.end_char,
-                confidence=confidence,
+                confidence=SPACY_DEFAULT_CONFIDENCE,
                 page=page,
-            )
-            entities.append(entity)
+            ))
 
-        # Segunda pasada: detectar nombres en texto con mayúsculas
-        # spaCy funciona mejor con title case, así que convertimos
-        # líneas en mayúsculas a title case y re-detectamos
+        # --- Pasada 2: texto normalizado (sin acentos, title case) ---
+        # Esto mejora la detección de nombres en MAYÚSCULAS y con acentos
+        def remove_accents(s: str) -> str:
+            nfkd = unicodedata.normalize("NFKD", s)
+            return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+        # Procesar línea por línea para mapear posiciones correctamente
         lines = text.split("\n")
+        offset = 0
         for line in lines:
-            stripped = line.strip()
-            # Si la línea está mayormente en mayúsculas (>60% uppercase letters)
-            alpha_chars = [c for c in stripped if c.isalpha()]
-            if alpha_chars and sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars) > 0.6:
-                # Convertir a title case y re-procesar
-                title_line = stripped.title()
-                doc_title: Doc = self._nlp(title_line)
-                for ent in doc_title.ents:
+            stripped = line
+            if not stripped.strip():
+                offset += len(line) + 1  # +1 for \n
+                continue
+
+            # Normalizar: quitar acentos y convertir a title case
+            normalized = remove_accents(stripped).title()
+
+            # Solo re-procesar si es diferente al original
+            if normalized != stripped:
+                doc_norm: Doc = self._nlp(normalized)
+                for ent in doc_norm.ents:
                     data_type = _SPACY_LABEL_MAP.get(ent.label_)
                     if data_type is None:
                         continue
-                    # Buscar la posición original en el texto
-                    original_text = stripped[ent.start_char:ent.end_char].strip()
-                    if not original_text:
+
+                    # Mapear posición al texto original
+                    start = offset + ent.start_char
+                    end = offset + ent.end_char
+
+                    # Verificar que no excede el texto
+                    if end > len(text):
+                        end = len(text)
+                    if start >= len(text):
                         continue
-                    # Encontrar la posición en el texto completo
-                    pos = text.find(stripped)
-                    if pos == -1:
+
+                    original_text = text[start:end]
+                    if not original_text.strip():
                         continue
-                    start = pos + ent.start_char
-                    end = pos + ent.end_char
-                    # Usar el texto original (en mayúsculas)
-                    entity = DetectedEntity(
-                        text=text[start:end],
+
+                    entities.append(DetectedEntity(
+                        text=original_text,
                         entity_type=data_type,
                         start=start,
                         end=end,
-                        confidence=SPACY_DEFAULT_CONFIDENCE * 0.9,  # Slightly lower confidence
+                        confidence=SPACY_DEFAULT_CONFIDENCE * 0.9,
                         page=page,
-                    )
-                    entities.append(entity)
+                    ))
+
+            offset += len(line) + 1  # +1 for \n
+
+        return entities
 
         return entities
 
@@ -296,6 +354,67 @@ class NEREngine:
                 resolved.append(entity)
 
         return sorted(resolved, key=lambda e: e.start)
+
+    def _merge_adjacent_same_type(
+        self, entities: list[DetectedEntity]
+    ) -> list[DetectedEntity]:
+        """Fusiona entidades adyacentes del mismo tipo en una sola.
+
+        Si "Pablo" [NOMBRE] y "Andrés" [NOMBRE] y "Bitreras" [NOMBRE]
+        están separadas solo por espacios en la misma línea, se fusionan
+        en una sola entidad [NOMBRE] que cubre todo el span.
+
+        Args:
+            entities: Lista de entidades ordenadas por posición.
+
+        Returns:
+            Lista con entidades adyacentes del mismo tipo fusionadas.
+        """
+        if not entities:
+            return []
+
+        sorted_ents = sorted(entities, key=lambda e: e.start)
+        merged: list[DetectedEntity] = [sorted_ents[0]]
+
+        for current in sorted_ents[1:]:
+            last = merged[-1]
+
+            # Verificar si son del mismo tipo, misma página, y adyacentes
+            gap = current.start - last.end
+            if (
+                current.entity_type == last.entity_type
+                and current.page == last.page
+                and 0 <= gap <= 15
+            ):
+                # No fusionar si hay un salto de línea en el gap
+                gap_text = last.text[len(last.text):] if gap == 0 else ""
+                # Usar posiciones para verificar — si el gap contiene \n, no fusionar
+                # Como no tenemos el texto original aquí, usamos heurística:
+                # si el end del último y start del actual están en la misma "zona"
+                # (gap <= 15 y no hay newline implícito por la diferencia de posición)
+                should_merge = True
+
+                # Heurística: si el texto del último termina con \n o el gap es > 1 línea
+                if "\n" in last.text or "\n" in current.text:
+                    should_merge = False
+
+                if should_merge:
+                    # Fusionar: crear entidad que cubra todo el span
+                    merged_text = last.text.rstrip() + " " + current.text.lstrip()
+                    merged[-1] = DetectedEntity(
+                        text=merged_text,
+                        entity_type=last.entity_type,
+                        start=last.start,
+                        end=current.end,
+                        confidence=max(last.confidence, current.confidence),
+                        page=last.page,
+                    )
+                else:
+                    merged.append(current)
+            else:
+                merged.append(current)
+
+        return merged
 
     @staticmethod
     def _entities_overlap(a: DetectedEntity, b: DetectedEntity) -> bool:
