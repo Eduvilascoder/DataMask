@@ -63,14 +63,14 @@ for /f "tokens=1,2 delims=." %%a in ("%PYTHON_VERSION%") do (
     set "PY_MINOR=%%b"
 )
 
-if %PY_MAJOR% lss %MIN_PYTHON_MAJOR% (
+if !PY_MAJOR! lss %MIN_PYTHON_MAJOR% (
     echo [ERROR] Python %PYTHON_VERSION% encontrado, pero se requiere ^>= %MIN_PYTHON_MAJOR%.%MIN_PYTHON_MINOR%
     echo   Descargue la version mas reciente desde:
     echo     https://www.python.org/downloads/
     exit /b 1
 )
-if %PY_MAJOR% equ %MIN_PYTHON_MAJOR% (
-    if %PY_MINOR% lss %MIN_PYTHON_MINOR% (
+if !PY_MAJOR! equ %MIN_PYTHON_MAJOR% (
+    if !PY_MINOR! lss %MIN_PYTHON_MINOR% (
         echo [ERROR] Python %PYTHON_VERSION% encontrado, pero se requiere ^>= %MIN_PYTHON_MAJOR%.%MIN_PYTHON_MINOR%
         echo   Descargue la version mas reciente desde:
         echo     https://www.python.org/downloads/
@@ -95,7 +95,7 @@ set "NODE_MAJOR=%NODE_VERSION_RAW:v=%"
 
 for /f "delims=" %%v in ('node --version') do set "NODE_VERSION_DISPLAY=%%v"
 
-if %NODE_MAJOR% lss %MIN_NODE_MAJOR% (
+if !NODE_MAJOR! lss %MIN_NODE_MAJOR% (
     echo [ERROR] Node.js %NODE_VERSION_DISPLAY% encontrado, pero se requiere ^>= v%MIN_NODE_MAJOR%
     echo   Descargue la version mas reciente desde:
     echo     https://nodejs.org/
