@@ -2,7 +2,7 @@
 const es = {
   // Navegación
   nav: {
-    processing: 'Procesamiento',
+    processing: 'Enmascarar',
     config: 'Configuración',
     logs: 'Registros de Auditoría',
     appName: 'DataMask',
