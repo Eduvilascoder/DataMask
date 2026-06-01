@@ -127,7 +127,19 @@ def detect_with_ollama(
     truncated = text[:max_chars] if len(text) > max_chars else text
 
     template = prompt_template if prompt_template else NER_PROMPT
-    prompt = template.format(text=truncated)
+
+    # Formatear el prompt - soportar {text} y {texto_del_documento} como placeholders
+    try:
+        if "{text}" in template:
+            prompt = template.format(text=truncated)
+        elif "{texto_del_documento}" in template:
+            prompt = template.format(texto_del_documento=truncated)
+        else:
+            # Si no tiene placeholder, agregar el texto al final
+            prompt = template + "\n" + truncated
+    except (KeyError, ValueError) as exc:
+        logger.error("Error al formatear prompt de Ollama: %s. Usando prompt por defecto.", exc)
+        prompt = NER_PROMPT.format(text=truncated)
 
     try:
         response = httpx.post(
@@ -194,10 +206,20 @@ def _parse_ollama_response(
     if not isinstance(items, list):
         return []
 
-    # Mapeo de tipos
+    # Mapeo de tipos — soporta los del prompt default y los del prompt custom
     type_map = {
         "NOMBRE": SensitiveDataType.NOMBRE,
         "DIRECCION": SensitiveDataType.DIRECCION,
+        "EMAIL": SensitiveDataType.EMAIL,
+        "TELEFONO": SensitiveDataType.TELEFONO,
+        "CELULAR": SensitiveDataType.CELULAR,
+        "DNI": SensitiveDataType.DNI,
+        "DNI_DOCUMENTO": SensitiveDataType.DNI,
+        "DATOS_BANCARIOS": SensitiveDataType.CUENTA_BANCARIA,
+        "TARJETA_CREDITO": SensitiveDataType.TARJETA_CREDITO,
+        "CUENTA_BANCARIA": SensitiveDataType.CUENTA_BANCARIA,
+        "CUIT_CUIL": SensitiveDataType.CUIT_CUIL,
+        "PASAPORTE": SensitiveDataType.PASAPORTE,
     }
 
     entities: list[DetectedEntity] = []
@@ -209,7 +231,11 @@ def _parse_ollama_response(
         entity_text = item.get("text", "").strip()
         entity_type_str = item.get("type", "").upper()
 
-        if not entity_text or entity_type_str not in type_map:
+        if not entity_text:
+            continue
+
+        if entity_type_str not in type_map:
+            logger.debug("Tipo no reconocido de Ollama: '%s' para texto '%s'", entity_type_str, entity_text[:30])
             continue
 
         entity_type = type_map[entity_type_str]
