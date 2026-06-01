@@ -143,7 +143,7 @@ class NEREngine:
         # Expandir entidades LOC para incluir "Ciudad, País" completo
         expanded: list[DetectedEntity] = []
         for ent in cleaned:
-            if ent.entity_type == SensitiveDataType.DIRECCION:
+            if ent.entity_type == "DIRECCION":
                 # Buscar si hay texto tipo "Ciudad, " antes de la entidad en la misma línea
                 # Ejemplo: "Santiago, Chile" → expandir para cubrir "Santiago, Chile"
                 # Solo buscar en la misma línea (no cruzar newlines)

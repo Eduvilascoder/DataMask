@@ -449,7 +449,7 @@ class PDFProcessor:
                     ))
 
         for entity in entities:
-            label = f"[{entity.entity_type.value}]"
+            label = f"[{entity.entity_type}]"
 
             # Estrategia: buscar el texto original de la entidad en la página.
             # Si la entidad fue fusionada (merge), el texto puede no coincidir
@@ -511,7 +511,7 @@ class PDFProcessor:
                     redact_font = "symb"
 
                 fill_color = _TAG_COLORS.get(
-                    entity.entity_type.value, (0.9, 0.9, 0.9)
+                    entity.entity_type, (0.9, 0.9, 0.9)
                 )
 
                 page.add_redact_annot(
@@ -584,7 +584,7 @@ class PDFProcessor:
         """
         counts: dict[str, int] = {}
         for entity in entities:
-            type_name = entity.entity_type.value
+            type_name = entity.entity_type
             counts[type_name] = counts.get(type_name, 0) + 1
         return counts
 
@@ -692,7 +692,7 @@ class PDFProcessor:
         sorted_entities = sorted(entities, key=lambda e: e.start, reverse=True)
 
         for entity in sorted_entities:
-            label = f"[{entity.entity_type.value}]"
+            label = f"[{entity.entity_type}]"
             text = text[:entity.start] + label + text[entity.end:]
 
         return text

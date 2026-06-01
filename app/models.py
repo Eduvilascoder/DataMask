@@ -53,7 +53,7 @@ class DetectedEntity(BaseModel):
     """Entidad sensible detectada en el texto de un PDF."""
 
     text: str
-    entity_type: SensitiveDataType
+    entity_type: str  # Tipo dinámico: puede ser del Enum o custom
     start: int
     end: int
     confidence: float = Field(ge=0.0, le=1.0)

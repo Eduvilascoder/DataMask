@@ -206,22 +206,6 @@ def _parse_ollama_response(
     if not isinstance(items, list):
         return []
 
-    # Mapeo de tipos — soporta los del prompt default y los del prompt custom
-    type_map = {
-        "NOMBRE": SensitiveDataType.NOMBRE,
-        "DIRECCION": SensitiveDataType.DIRECCION,
-        "EMAIL": SensitiveDataType.EMAIL,
-        "TELEFONO": SensitiveDataType.TELEFONO,
-        "CELULAR": SensitiveDataType.CELULAR,
-        "DNI": SensitiveDataType.DNI,
-        "DNI_DOCUMENTO": SensitiveDataType.DNI,
-        "DATOS_BANCARIOS": SensitiveDataType.CUENTA_BANCARIA,
-        "TARJETA_CREDITO": SensitiveDataType.TARJETA_CREDITO,
-        "CUENTA_BANCARIA": SensitiveDataType.CUENTA_BANCARIA,
-        "CUIT_CUIL": SensitiveDataType.CUIT_CUIL,
-        "PASAPORTE": SensitiveDataType.PASAPORTE,
-    }
-
     entities: list[DetectedEntity] = []
 
     for item in items:
@@ -234,11 +218,29 @@ def _parse_ollama_response(
         if not entity_text:
             continue
 
-        if entity_type_str not in type_map:
-            logger.debug("Tipo no reconocido de Ollama: '%s' para texto '%s'", entity_type_str, entity_text[:30])
+        # Mapear tipos conocidos, pero aceptar cualquier tipo que Ollama devuelva
+        known_types = {
+            "NOMBRE": "NOMBRE",
+            "DIRECCION": "DIRECCION",
+            "EMAIL": "EMAIL",
+            "TELEFONO": "TELEFONO",
+            "CELULAR": "CELULAR",
+            "DNI": "DNI",
+            "DNI_DOCUMENTO": "DNI",
+            "DATOS_BANCARIOS": "DATOS_BANCARIOS",
+            "TARJETA_CREDITO": "TARJETA_CREDITO",
+            "CUENTA_BANCARIA": "CUENTA_BANCARIA",
+            "CUIT_CUIL": "CUIT_CUIL",
+            "PASAPORTE": "PASAPORTE",
+            "FECHA_NACIMIENTO": "FECHA_NACIMIENTO",
+            "IP_DISPOSITIVO": "IP_DISPOSITIVO",
+        }
+
+        if not entity_type_str:
             continue
 
-        entity_type = type_map[entity_type_str]
+        # Usar el mapeo si existe, sino usar el tipo tal cual
+        final_type = known_types.get(entity_type_str, entity_type_str)
 
         # Buscar la posición del texto en el original
         # Buscar case-insensitive para manejar mayúsculas/minúsculas
@@ -258,7 +260,7 @@ def _parse_ollama_response(
 
         entities.append(DetectedEntity(
             text=entity_text,
-            entity_type=entity_type,
+            entity_type=final_type,
             start=pos,
             end=pos + len(entity_text),
             confidence=0.90,
