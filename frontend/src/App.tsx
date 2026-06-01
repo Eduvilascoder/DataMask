@@ -43,7 +43,7 @@ const AppContent: React.FC = () => {
             <SpaceBetween size="xxxs">
               <Box variant="h2" color="text-status-info">DataMask</Box>
               <Box variant="small" color="text-body-secondary">Enmascarar datos sensibles</Box>
-              <Box fontSize="body-s" color="text-status-inactive">v2.0 — by EduTheCoder</Box>
+              <Box fontSize="body-s" color="text-status-inactive">v2.0</Box>
             </SpaceBetween>
           </Box>
           <SideNavigation
