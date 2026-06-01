@@ -393,15 +393,18 @@ if !errorlevel! neq 0 (
 )
 where ollama >nul 2>&1
 if %errorlevel% equ 0 (
+    echo [INFO] Iniciando servicio Ollama para descargar modelo...
+    start /b ollama serve >nul 2>&1
+    timeout /t 3 /nobreak >nul
     echo [INFO] Verificando modelo Llama 3.1 8B...
     ollama list 2>nul | findstr /i "llama3.1" >nul 2>&1
-    if %errorlevel% equ 0 (
+    if !errorlevel! equ 0 (
         echo [AVISO] Modelo Llama 3.1 8B ya descargado.
     ) else (
         echo [INFO] Descargando modelo Llama 3.1 8B ^(~4.7GB^)...
         echo [INFO] Este paso puede tardar 5-10 minutos dependiendo de su conexion...
         ollama pull llama3.1:8b
-        if %errorlevel% equ 0 (
+        if !errorlevel! equ 0 (
             echo [OK] Modelo Llama 3.1 8B descargado correctamente
         ) else (
             echo [AVISO] No se pudo descargar el modelo.

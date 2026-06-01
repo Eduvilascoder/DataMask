@@ -61,13 +61,20 @@ if %errorlevel% neq 0 (
 )
 where ollama >nul 2>&1
 if %errorlevel% equ 0 (
+    REM Verificar si Ollama ya esta corriendo
     curl -s http://localhost:11434/api/tags >nul 2>&1
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo [OK] Iniciando Ollama en background...
-        start /b ollama serve >nul 2>&1
-        timeout /t 3 /nobreak >nul
+        start "" /b ollama serve >nul 2>&1
+        echo [OK] Esperando que Ollama inicie...
+        timeout /t 5 /nobreak >nul
     )
-    echo [OK] Ollama activo ^(Llama 3.1 8B^)
+    curl -s http://localhost:11434/api/tags >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [OK] Ollama activo
+    ) else (
+        echo [AVISO] Ollama no responde. Se usara spaCy.
+    )
 ) else (
     echo [INFO] Ollama no instalado - usando spaCy como fallback
 )
