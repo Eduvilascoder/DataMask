@@ -325,8 +325,8 @@ if %errorlevel% equ 0 (
 ) else (
     echo [INFO] Instalando Ollama...
     echo [INFO] Descargando instalador de Ollama...
-    REM Intentar con curl primero
-    curl -fsSL -o "%TEMP%\OllamaSetup.exe" "https://ollama.com/download/OllamaSetup.exe" 2>nul
+    REM Intentar con curl primero (con barra de progreso)
+    curl -fSL -o "%TEMP%\OllamaSetup.exe" "https://ollama.com/download/OllamaSetup.exe" 2>&1
     if not exist "%TEMP%\OllamaSetup.exe" (
         REM Intentar con PowerShell como alternativa
         echo [INFO] Reintentando descarga con PowerShell...
