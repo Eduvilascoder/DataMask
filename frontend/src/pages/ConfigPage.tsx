@@ -11,6 +11,7 @@ import {
   FormField,
   Box,
   Modal,
+  RadioGroup,
 } from '@cloudscape-design/components';
 
 interface TypeEntry {
@@ -32,6 +33,13 @@ interface FullConfig {
   types: Record<string, TypeEntry>;
   custom_types: CustomType[];
   updated_at: string | null;
+  engine?: string;
+}
+
+interface EngineStatus {
+  ollama: { available: boolean; model: string; url: string };
+  spacy: { available: boolean; model: string };
+  active_engine: string;
 }
 
 const ConfigPage: React.FC = () => {
@@ -43,6 +51,7 @@ const ConfigPage: React.FC = () => {
   const [newTypeLabel, setNewTypeLabel] = useState('');
   const [newTypeDesc, setNewTypeDesc] = useState('');
   const [newTypePattern, setNewTypePattern] = useState('');
+  const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [flashMessages, setFlashMessages] = useState<Array<{
     type: 'success' | 'error';
     content: string;
@@ -78,9 +87,9 @@ const ConfigPage: React.FC = () => {
               description: defaultDescs[key] || '',
             };
           }
-          setConfig({ version: 2, types, custom_types: [], updated_at: null });
+          setConfig({ version: 2, types, custom_types: [], updated_at: null, engine: 'ollama' });
         } else {
-          setConfig(data as FullConfig);
+          setConfig({ engine: 'ollama', ...data } as FullConfig);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error de red');
@@ -88,7 +97,21 @@ const ConfigPage: React.FC = () => {
         setLoading(false);
       }
     };
+
+    const fetchEngineStatus = async () => {
+      try {
+        const response = await fetch('/api/status/engine');
+        if (response.ok) {
+          const data: EngineStatus = await response.json();
+          setEngineStatus(data);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+
     fetchConfig();
+    fetchEngineStatus();
   }, []);
 
   const handleToggle = (key: string, enabled: boolean) => {
@@ -164,6 +187,11 @@ const ConfigPage: React.FC = () => {
     setShowAddModal(false);
   };
 
+  const handleEngineChange = (value: string) => {
+    if (!config) return;
+    setConfig({ ...config, engine: value });
+  };
+
   const handleSave = async () => {
     if (!config) return;
     setSaving(true);
@@ -199,6 +227,8 @@ const ConfigPage: React.FC = () => {
   if (loading) return <Container><Alert type="info">Cargando configuración...</Alert></Container>;
   if (error) return <Container><Alert type="error">{error}</Alert></Container>;
 
+  const ollamaDisabled = engineStatus ? !engineStatus.ollama.available : false;
+
   return (
     <SpaceBetween size="l">
       {flashMessages.length > 0 && (
@@ -207,6 +237,39 @@ const ConfigPage: React.FC = () => {
           onDismiss: () => setFlashMessages(prev => prev.filter(m => m.id !== msg.id)),
         }))} />
       )}
+
+      <Container
+        header={
+          <Header variant="h2">
+            Motor de IA
+          </Header>
+        }
+      >
+        <SpaceBetween size="s">
+          {ollamaDisabled && (
+            <Alert type="warning">
+              Ollama no está disponible. Verifique que Ollama esté instalado y ejecutándose con el modelo llama3.1:8b.
+            </Alert>
+          )}
+          <RadioGroup
+            value={config?.engine || 'ollama'}
+            onChange={({ detail }) => handleEngineChange(detail.value)}
+            items={[
+              {
+                value: 'ollama',
+                label: 'Ollama (Llama 3.1 8B)',
+                description: 'Mayor precisión para nombres y direcciones. Requiere Ollama instalado.',
+                disabled: ollamaDisabled,
+              },
+              {
+                value: 'spacy',
+                label: 'spaCy (es_core_news_lg)',
+                description: 'Más rápido pero menos preciso con nombres en mayúsculas.',
+              },
+            ]}
+          />
+        </SpaceBetween>
+      </Container>
 
       <Container
         header={

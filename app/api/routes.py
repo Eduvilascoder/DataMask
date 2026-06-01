@@ -115,6 +115,36 @@ class LogsResponse(BaseModel):
 # --- Endpoints de validación de carpeta (Task 8.1) ---
 
 
+@router.get("/status/engine")
+async def get_engine_status():
+    """Returns the status of the NER engines (Ollama and spaCy)."""
+    from app.ner.ollama_client import is_ollama_available, OLLAMA_MODEL
+
+    ollama_ok = is_ollama_available()
+
+    # Check spaCy
+    spacy_ok = False
+    try:
+        import spacy
+        spacy.load("es_core_news_lg")
+        spacy_ok = True
+    except Exception:
+        pass
+
+    return {
+        "ollama": {
+            "available": ollama_ok,
+            "model": OLLAMA_MODEL,
+            "url": "http://localhost:11434",
+        },
+        "spacy": {
+            "available": spacy_ok,
+            "model": "es_core_news_lg",
+        },
+        "active_engine": "ollama" if ollama_ok else "spacy" if spacy_ok else "none",
+    }
+
+
 @router.post(
     "/folders/validate",
     response_model=FolderValidationResponse,

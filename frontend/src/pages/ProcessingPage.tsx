@@ -1,10 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Container,
   Header,
   SpaceBetween,
   Alert,
   Flashbar,
+  StatusIndicator,
+  Box,
 } from '@cloudscape-design/components';
 import type { FileInfo } from '../types';
 import { validateFolder, startProcessing } from '../services/api';
@@ -13,18 +15,40 @@ import FileList from '../components/FileList';
 import ProcessingProgress from '../components/ProcessingProgress';
 import es from '../i18n/es';
 
+interface EngineStatus {
+  ollama: { available: boolean; model: string; url: string };
+  spacy: { available: boolean; model: string };
+  active_engine: string;
+}
+
 const ProcessingPage: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [folderPath, setFolderPath] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationError, setValidationError] = useState<string | undefined>();
+  const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [flashMessages, setFlashMessages] = useState<Array<{
     type: 'success' | 'error' | 'info';
     content: string;
     id: string;
     dismissible: boolean;
   }>>([]);
+
+  useEffect(() => {
+    const fetchEngineStatus = async () => {
+      try {
+        const response = await fetch('/api/status/engine');
+        if (response.ok) {
+          const data: EngineStatus = await response.json();
+          setEngineStatus(data);
+        }
+      } catch {
+        // Silently fail — status indicator just won't show
+      }
+    };
+    fetchEngineStatus();
+  }, []);
 
   const handleValidate = async (path: string) => {
     setIsValidating(true);
@@ -80,6 +104,36 @@ const ProcessingPage: React.FC = () => {
     setIsProcessing(false);
   }, []);
 
+  const renderEngineStatus = () => {
+    if (!engineStatus) return null;
+
+    if (engineStatus.active_engine === 'ollama') {
+      return (
+        <Box margin={{ bottom: 's' }}>
+          <StatusIndicator type="success">
+            Ollama activo (Llama 3.1 8B)
+          </StatusIndicator>
+        </Box>
+      );
+    } else if (engineStatus.active_engine === 'spacy') {
+      return (
+        <Box margin={{ bottom: 's' }}>
+          <StatusIndicator type="warning">
+            spaCy activo (fallback)
+          </StatusIndicator>
+        </Box>
+      );
+    } else {
+      return (
+        <Box margin={{ bottom: 's' }}>
+          <StatusIndicator type="error">
+            Sin motor NER
+          </StatusIndicator>
+        </Box>
+      );
+    }
+  };
+
   return (
     <SpaceBetween size="l">
       {flashMessages.length > 0 && (
@@ -91,6 +145,8 @@ const ProcessingPage: React.FC = () => {
           }))}
         />
       )}
+
+      {renderEngineStatus()}
 
       <Container
         header={
