@@ -10,6 +10,9 @@ REM Directorio base del proyecto
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
+REM Agregar node portable al PATH si existe
+if exist "node\node.exe" set "PATH=%PATH%;%SCRIPT_DIR%node"
+
 REM Puerto por defecto
 if "%PORT%"=="" set PORT=3000
 if "%HOST%"=="" set HOST=127.0.0.1

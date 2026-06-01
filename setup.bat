@@ -99,59 +99,61 @@ echo [OK] Python %PYTHON_VERSION% encontrado
 
 REM Verificar Node.js
 echo [INFO] Verificando Node.js...
+set "NODE_CMD="
 where node >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [INFO] Node.js no encontrado. Instalando automaticamente...
-    echo [INFO] Descargando Node.js 20 LTS...
-    curl -fsSL -o "%TEMP%\node-setup.msi" "https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi"
+if %errorlevel% equ 0 (
+    set "NODE_CMD=node"
+)
+REM Tambien buscar en la carpeta local del proyecto
+if exist "%SCRIPT_DIR%node\node.exe" (
+    set "PATH=!PATH!;%SCRIPT_DIR%node"
+    set "NODE_CMD=node"
+)
+
+if "!NODE_CMD!"=="" (
+    echo [INFO] Node.js no encontrado. Instalando version portable...
+    echo [INFO] Descargando Node.js 20 LTS ^(portable^)...
+    if not exist "node\" mkdir node
+    curl -fsSL -o "%TEMP%\node.zip" "https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip"
     if !errorlevel! neq 0 (
         echo [ERROR] No se pudo descargar Node.js.
         echo   Instale manualmente desde: https://nodejs.org/
         exit /b 1
     )
-    echo [INFO] Instalando Node.js ^(esto puede tardar un minuto^)...
-    msiexec /i "%TEMP%\node-setup.msi" /qn /norestart
-    del "%TEMP%\node-setup.msi" 2>nul
-    REM Esperar a que termine la instalacion
-    timeout /t 5 /nobreak >nul
-    REM Buscar node en todas las ubicaciones posibles
-    set "NODE_FOUND=0"
-    if exist "C:\Program Files\nodejs\node.exe" (
-        set "PATH=!PATH!;C:\Program Files\nodejs"
-        set "NODE_FOUND=1"
+    echo [INFO] Extrayendo Node.js...
+    powershell -Command "Expand-Archive -Path '%TEMP%\node.zip' -DestinationPath '%TEMP%\node_extract' -Force"
+    REM Mover contenido al directorio node/ del proyecto
+    xcopy /E /Y /Q "%TEMP%\node_extract\node-v20.18.0-win-x64\*" "node\" >nul 2>&1
+    rd /S /Q "%TEMP%\node_extract" 2>nul
+    del "%TEMP%\node.zip" 2>nul
+    REM Agregar al PATH de esta sesion
+    set "PATH=!PATH!;%SCRIPT_DIR%node"
+    where node >nul 2>&1
+    if !errorlevel! neq 0 (
+        if exist "node\node.exe" (
+            set "PATH=!PATH!;%SCRIPT_DIR%node"
+        ) else (
+            echo [ERROR] No se pudo instalar Node.js.
+            echo   Instale manualmente desde: https://nodejs.org/
+            exit /b 1
+        )
     )
-    if exist "%ProgramFiles%\nodejs\node.exe" (
-        set "PATH=!PATH!;%ProgramFiles%\nodejs"
-        set "NODE_FOUND=1"
-    )
-    if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
-        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\nodejs"
-        set "NODE_FOUND=1"
-    )
-    if "!NODE_FOUND!"=="0" (
-        echo.
-        echo [AVISO] Node.js se instalo correctamente pero requiere reiniciar la terminal.
-        echo.
-        echo   POR FAVOR:
-        echo   1. Cierre esta ventana de terminal
-        echo   2. Abra una nueva terminal ^(CMD o PowerShell^)
-        echo   3. Ejecute setup.bat de nuevo
-        echo.
-        echo   Node.js ya esta instalado, solo necesita refrescar el PATH.
-        exit /b 0
-    )
-    echo [OK] Node.js instalado correctamente
+    echo [OK] Node.js portable instalado en carpeta node\
 )
 
-where node >nul 2>&1
+REM Verificar que node funciona
+node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js no disponible en esta sesion.
-    echo   Cierre la terminal, abra una nueva y ejecute setup.bat de nuevo.
+    if exist "node\node.exe" (
+        set "PATH=!PATH!;%SCRIPT_DIR%node"
+    )
+)
+for /f "delims=" %%v in ('node --version 2^>nul') do set "NODE_VERSION_DISPLAY=%%v"
+if "!NODE_VERSION_DISPLAY!"=="" (
+    echo [ERROR] Node.js no funciona correctamente.
+    echo   Instale manualmente desde: https://nodejs.org/
     exit /b 1
 )
-for /f "tokens=1 delims=." %%a in ('node --version') do set "NODE_VERSION_RAW=%%a"
-set "NODE_MAJOR=!NODE_VERSION_RAW:v=!"
-for /f "delims=" %%v in ('node --version') do set "NODE_VERSION_DISPLAY=%%v"
 echo [OK] Node.js !NODE_VERSION_DISPLAY! encontrado
 
 REM Verificar npm
