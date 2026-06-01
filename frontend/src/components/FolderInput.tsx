@@ -25,15 +25,15 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
   const [browseData, setBrowseData] = useState<BrowseResponse | null>(null);
   const [browseLoading, setBrowseLoading] = useState(false);
 
-  const handleValidate = () => {
-    if (path.trim()) {
-      onValidate(path.trim());
+  const handleValidate = (folderPath: string) => {
+    if (folderPath.trim()) {
+      onValidate(folderPath.trim());
     }
   };
 
   const handleKeyDown = (event: CustomEvent<{ key: string }>) => {
     if (event.detail.key === 'Enter' && path.trim()) {
-      handleValidate();
+      handleValidate(path);
     }
   };
 
@@ -65,8 +65,11 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
 
   const selectFolder = () => {
     if (browseData) {
-      setPath(browseData.current_path);
+      const selectedPath = browseData.current_path;
+      setPath(selectedPath);
       setShowBrowser(false);
+      // Validar automáticamente al seleccionar
+      handleValidate(selectedPath);
     }
   };
 
@@ -76,6 +79,7 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
         <FormField
           label={es.processing.folderInput.label}
           errorText={errorText}
+          description="Explore y seleccione una carpeta, o ingrese la ruta manualmente y presione Enter"
           stretch
         >
           <Input
@@ -88,25 +92,15 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
           />
         </FormField>
         <FormField label="&nbsp;">
-          <SpaceBetween size="xs" direction="horizontal">
-            <Button
-              iconName="folder-open"
-              onClick={openBrowser}
-              disabled={isLoading}
-            >
-              Explorar
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleValidate}
-              loading={isLoading}
-              disabled={!path.trim()}
-            >
-              {isLoading
-                ? es.processing.folderInput.validating
-                : es.processing.folderInput.validateButton}
-            </Button>
-          </SpaceBetween>
+          <Button
+            variant="primary"
+            iconName="folder-open"
+            onClick={openBrowser}
+            disabled={isLoading}
+            loading={isLoading}
+          >
+            {isLoading ? 'Cargando...' : 'Explorar carpetas'}
+          </Button>
         </FormField>
       </SpaceBetween>
 
@@ -114,10 +108,8 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
         visible={showBrowser}
         onDismiss={() => setShowBrowser(false)}
         header={
-          <Header
-            description={browseData?.current_path || ''}
-          >
-            Explorar carpetas
+          <Header description={browseData?.current_path || ''}>
+            Seleccionar carpeta
           </Header>
         }
         size="large"
@@ -152,7 +144,7 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
               <Box textAlign="center" color="inherit">
                 <b>Carpeta vacía</b>
                 <Box padding={{ bottom: 's' }} variant="p" color="inherit">
-                  No se encontraron carpetas ni archivos PDF.
+                  No se encontraron carpetas ni documentos.
                 </Box>
               </Box>
             }
@@ -183,9 +175,9 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
               {
                 id: 'type',
                 header: 'Tipo',
-                width: 120,
+                width: 150,
                 cell: (item: DirectoryEntry) =>
-                  item.is_dir ? 'Carpeta' : 'Archivo PDF',
+                  item.is_dir ? 'Carpeta' : item.name.split('.').pop()?.toUpperCase() || 'Archivo',
               },
             ]}
           />
