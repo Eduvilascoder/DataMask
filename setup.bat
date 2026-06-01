@@ -38,13 +38,42 @@ REM Verificar Python
 echo [INFO] Verificando Python...
 set "PYTHON_CMD="
 
-where python >nul 2>&1
+REM Buscar Python real (no el alias de Microsoft Store)
+REM El alias de MS Store devuelve error 9009 al ejecutar --version
+python --version >nul 2>&1
 if %errorlevel% equ 0 (
-    set "PYTHON_CMD=python"
-) else (
-    where python3 >nul 2>&1
-    if %errorlevel% equ 0 (
+    REM Verificar que no es el alias de Microsoft Store
+    for /f "tokens=*" %%v in ('python --version 2^>^&1') do set "PY_CHECK=%%v"
+    echo !PY_CHECK! | findstr /i "Python" >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=python"
+    )
+)
+
+if "!PYTHON_CMD!"=="" (
+    python3 --version >nul 2>&1
+    if !errorlevel! equ 0 (
         set "PYTHON_CMD=python3"
+    )
+)
+
+REM Buscar en ubicaciones comunes si no se encontro
+if "!PYTHON_CMD!"=="" (
+    if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
+    )
+    if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts"
+    )
+    if exist "C:\Python312\python.exe" (
+        set "PYTHON_CMD=C:\Python312\python.exe"
+        set "PATH=!PATH!;C:\Python312;C:\Python312\Scripts"
+    )
+    if exist "C:\Python311\python.exe" (
+        set "PYTHON_CMD=C:\Python311\python.exe"
+        set "PATH=!PATH!;C:\Python311;C:\Python311\Scripts"
     )
 )
 
@@ -55,21 +84,24 @@ if "!PYTHON_CMD!"=="" (
     if !errorlevel! neq 0 (
         echo [ERROR] No se pudo descargar Python.
         echo   Instale manualmente desde: https://www.python.org/downloads/
-        echo   Asegurese de marcar "Add Python to PATH".
+        echo   IMPORTANTE: Marque "Add Python to PATH" durante la instalacion.
+        echo   IMPORTANTE: Desactive el alias de Microsoft Store:
+        echo     Configuracion ^> Aplicaciones ^> Alias de ejecucion ^> Desactive "python.exe"
         exit /b 1
     )
     echo [INFO] Instalando Python 3.12 ^(esto puede tardar un minuto^)...
     "%TEMP%\python-setup.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1
     del "%TEMP%\python-setup.exe" 2>nul
-    REM Refrescar PATH
-    set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
-    where python >nul 2>&1
-    if !errorlevel! equ 0 (
-        set "PYTHON_CMD=python"
-        echo [OK] Python instalado correctamente
+    timeout /t 5 /nobreak >nul
+    set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
+    if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+        echo [OK] Python 3.12 instalado correctamente
     ) else (
-        echo [ERROR] Python se instalo pero no se encuentra en el PATH.
+        echo [ERROR] Python se instalo pero no se encuentra.
         echo   Cierre esta terminal, abra una nueva y ejecute setup.bat de nuevo.
+        echo   Si el problema persiste, desactive el alias de Microsoft Store:
+        echo     Configuracion ^> Aplicaciones ^> Alias de ejecucion ^> Desactive "python.exe"
         exit /b 1
     )
 )
@@ -220,17 +252,25 @@ echo ============================================================
 echo.
 
 if exist "venv\" (
-    echo [AVISO] Entorno virtual existente detectado. Se reutilizara.
-) else (
+    echo [AVISO] Entorno virtual existente detectado. Verificando...
+    if not exist "venv\Scripts\python.exe" (
+        echo [AVISO] Entorno virtual corrupto. Recreando...
+        rd /S /Q venv 2>nul
+    )
+)
+
+if not exist "venv\" (
     echo [INFO] Creando entorno virtual...
-    %PYTHON_CMD% -m venv venv
-    if %errorlevel% neq 0 (
+    "!PYTHON_CMD!" -m venv venv
+    if !errorlevel! neq 0 (
         echo [ERROR] Fallo al crear el entorno virtual.
         echo   Intente manualmente:
-        echo     %PYTHON_CMD% -m venv venv
+        echo     "!PYTHON_CMD!" -m venv venv
         exit /b 1
     )
     echo [OK] Entorno virtual creado en .\venv
+) else (
+    echo [OK] Entorno virtual existente verificado
 )
 
 REM Activar entorno virtual
