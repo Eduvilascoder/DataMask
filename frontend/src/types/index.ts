@@ -80,6 +80,7 @@ export interface AuditLogEntry {
   entities_detected: number;
   entities_by_type: Record<string, number>;
   error_detail: string | null;
+  engine: string | null;
 }
 
 /** Respuesta paginada de logs. */

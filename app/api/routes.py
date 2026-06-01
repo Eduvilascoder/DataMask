@@ -425,6 +425,9 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
 
         results.append(result)
 
+        # Determinar motor activo
+        engine_name = "ollama" if ner_engine._ollama_available else "spacy"
+
         # Registrar en log de auditoría
         log_entry = AuditLogEntry(
             filename=file_info.name,
@@ -435,6 +438,7 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
             entities_detected=result.entities_found,
             entities_by_type=result.entities_by_type,
             error_detail=result.error,
+            engine=engine_name,
         )
         log_service.write_entry(log_entry)
 
@@ -629,6 +633,16 @@ async def get_logs(
         page_size=page_size,
         total_in_page=len(entries),
     )
+
+
+@router.delete("/logs")
+async def delete_logs():
+    """Borra todos los registros de auditoría."""
+    base_dir = _get_base_dir()
+    log_file = base_dir / "log" / "audit.jsonl"
+    if log_file.exists():
+        log_file.unlink()
+    return {"message": "Registros de auditoría eliminados.", "deleted": True}
 
 
 # --- Endpoints de gestión de archivos ofuscados ---

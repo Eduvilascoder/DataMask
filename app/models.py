@@ -83,3 +83,4 @@ class AuditLogEntry(BaseModel):
     entities_detected: int
     entities_by_type: dict[str, int] = Field(default_factory=dict)
     error_detail: str | None = None
+    engine: str | None = None  # "ollama", "spacy", or "hybrid"

@@ -20,6 +20,21 @@ from app.ner.engine import NEREngine
 logger = logging.getLogger(__name__)
 
 
+# Color map for redaction backgrounds (light pastel colors)
+_TAG_COLORS: dict[str, tuple[float, float, float]] = {
+    "NOMBRE": (1, 0.85, 0.85),
+    "EMAIL": (0.85, 0.92, 1),
+    "TELEFONO": (0.85, 1, 0.85),
+    "CELULAR": (0.85, 1, 0.92),
+    "DIRECCION": (1, 0.95, 0.8),
+    "DNI": (0.95, 0.85, 1),
+    "CUIT_CUIL": (0.9, 0.85, 1),
+    "TARJETA_CREDITO": (1, 0.85, 0.92),
+    "CUENTA_BANCARIA": (0.85, 0.95, 0.95),
+    "PASAPORTE": (1, 1, 0.8),
+}
+
+
 class PDFProcessor:
     """Procesa documentos aplicando redacciones basadas en entidades detectadas.
 
@@ -495,12 +510,18 @@ class PDFProcessor:
                 elif "symbol" in fl:
                     redact_font = "symb"
 
+                fill_color = _TAG_COLORS.get(
+                    entity.entity_type.value, (0.9, 0.9, 0.9)
+                )
+
                 page.add_redact_annot(
                     rect,
                     text=label,
                     fontsize=fontsize,
                     fontname=redact_font,
                     align=fitz.TEXT_ALIGN_LEFT,
+                    fill=fill_color,
+                    text_color=(0, 0, 0),
                 )
 
         page.apply_redactions()

@@ -58,6 +58,12 @@ export async function getLogs(page: number = 1, pageSize: number = 100): Promise
   return handleResponse<LogsResponse>(response);
 }
 
+/** Borra todos los registros de auditoría. */
+export async function deleteLogs(): Promise<{ message: string; deleted: boolean }> {
+  const response = await fetch(`${BASE_URL}/logs`, { method: 'DELETE' });
+  return handleResponse<{ message: string; deleted: boolean }>(response);
+}
+
 /** Navega directorios del sistema de archivos local. */
 export interface DirectoryEntry {
   name: string;
