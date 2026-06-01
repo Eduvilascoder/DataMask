@@ -277,7 +277,19 @@ fi
 # Instalar Ollama y descargar modelo Llama 3.1 8B
 # =============================================================================
 
-print_header "Instalando Ollama y modelo Llama 3.1 8B"
+print_header "Ollama (Motor de IA - Opcional)"
+
+echo ""
+echo "  Ollama mejora la detección de nombres y direcciones."
+echo "  Requiere ~5GB de espacio y 8GB de RAM."
+echo "  Sin Ollama, la app funciona con spaCy (menos preciso)."
+echo ""
+read -p "  ¿Desea instalar Ollama? (S/N) [S]: " INSTALL_OLLAMA
+INSTALL_OLLAMA=${INSTALL_OLLAMA:-S}
+
+if [[ "${INSTALL_OLLAMA^^}" == "N" ]]; then
+    print_info "Ollama omitido. Se usará spaCy como motor de IA."
+else
 
 # Verificar si Ollama ya está instalado
 if check_command ollama; then
@@ -312,6 +324,8 @@ if check_command ollama; then
         fi
     fi
 fi
+
+fi  # End of Ollama optional install
 
 # =============================================================================
 # Descargar modelo spaCy (fallback)

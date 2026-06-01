@@ -314,9 +314,19 @@ REM Instalar Ollama y descargar modelo Llama 3.1 8B
 REM =============================================================================
 
 echo ============================================================
-echo   Instalando Ollama y modelo Llama 3.1 8B
+echo   Ollama ^(Motor de IA - Opcional^)
 echo ============================================================
 echo.
+echo   Ollama mejora la deteccion de nombres y direcciones.
+echo   Requiere ~5GB de espacio y 8GB de RAM.
+echo   Sin Ollama, la app funciona con spaCy ^(menos preciso^).
+echo.
+set /p "INSTALL_OLLAMA=Desea instalar Ollama? (S/N) [S]: "
+if /i "!INSTALL_OLLAMA!"=="" set "INSTALL_OLLAMA=S"
+if /i "!INSTALL_OLLAMA!"=="N" (
+    echo [INFO] Ollama omitido. Se usara spaCy como motor de IA.
+    goto :skip_ollama
+)
 
 REM Verificar si Ollama ya está instalado
 where ollama >nul 2>&1
@@ -376,6 +386,8 @@ if %errorlevel% equ 0 (
 )
 
 echo.
+
+:skip_ollama
 
 REM =============================================================================
 REM Descargar modelo spaCy (fallback)
