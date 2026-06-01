@@ -325,13 +325,27 @@ if %errorlevel% equ 0 (
 ) else (
     echo [INFO] Instalando Ollama...
     echo [INFO] Descargando instalador de Ollama...
-    curl -fsSL -o "%TEMP%\OllamaSetup.exe" https://ollama.com/download/OllamaSetup.exe
-    if %errorlevel% equ 0 (
+    REM Intentar con curl primero
+    curl -fsSL -o "%TEMP%\OllamaSetup.exe" "https://ollama.com/download/OllamaSetup.exe" 2>nul
+    if not exist "%TEMP%\OllamaSetup.exe" (
+        REM Intentar con PowerShell como alternativa
+        echo [INFO] Reintentando descarga con PowerShell...
+        powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://ollama.com/download/OllamaSetup.exe' -OutFile '%TEMP%\OllamaSetup.exe'" 2>nul
+    )
+    if exist "%TEMP%\OllamaSetup.exe" (
         echo [INFO] Ejecutando instalador de Ollama...
-        echo [INFO] Siga las instrucciones del instalador si aparece una ventana.
         start /wait "" "%TEMP%\OllamaSetup.exe" /SILENT
         del "%TEMP%\OllamaSetup.exe" 2>nul
-        echo [OK] Ollama instalado correctamente
+        timeout /t 3 /nobreak >nul
+        where ollama >nul 2>&1
+        if !errorlevel! equ 0 (
+            echo [OK] Ollama instalado correctamente
+        ) else (
+            echo [AVISO] Ollama se instalo pero no se encuentra en el PATH.
+            echo   Cierre y abra una nueva terminal, luego ejecute:
+            echo     ollama pull llama3.1:8b
+            echo   La aplicacion funcionara con spaCy como fallback por ahora.
+        )
     ) else (
         echo [AVISO] No se pudo descargar Ollama automaticamente.
         echo   Instale manualmente desde: https://ollama.com/download
