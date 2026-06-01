@@ -100,8 +100,13 @@ class NEREngine:
         # Detección con regex (formatos estructurados)
         regex_entities = detect_with_regex(text, page)
 
-        # Combinar ambas fuentes
-        all_entities = semantic_entities + regex_entities
+        # Heurística: detectar nombres en líneas en mayúsculas
+        # (siempre se ejecuta como complemento, especialmente útil
+        # cuando spaCy no reconoce nombres poco comunes)
+        heuristic_names = self._detect_uppercase_names(text, page)
+
+        # Combinar todas las fuentes
+        all_entities = semantic_entities + regex_entities + heuristic_names
 
         # Filtrar por tipos activos
         all_entities = self._filter_by_active_types(all_entities)
