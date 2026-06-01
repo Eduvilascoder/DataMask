@@ -38,42 +38,34 @@ REM Verificar Python
 echo [INFO] Verificando Python...
 set "PYTHON_CMD="
 
-REM Buscar Python real (no el alias de Microsoft Store)
-REM El alias de MS Store devuelve error 9009 al ejecutar --version
-python --version >nul 2>&1
-if %errorlevel% equ 0 (
-    REM Verificar que no es el alias de Microsoft Store
-    for /f "tokens=*" %%v in ('python --version 2^>^&1') do set "PY_CHECK=%%v"
-    echo !PY_CHECK! | findstr /i "Python" >nul 2>&1
-    if !errorlevel! equ 0 (
-        set "PYTHON_CMD=python"
+REM Buscar Python REAL directamente por ruta (evita alias de Microsoft Store)
+REM Primero intentar en ubicaciones conocidas de instalacion
+for %%P in (
+    "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python39\python.exe"
+    "C:\Python313\python.exe"
+    "C:\Python312\python.exe"
+    "C:\Python311\python.exe"
+    "C:\Python310\python.exe"
+    "C:\Python39\python.exe"
+    "%ProgramFiles%\Python313\python.exe"
+    "%ProgramFiles%\Python312\python.exe"
+    "%ProgramFiles%\Python311\python.exe"
+) do (
+    if "!PYTHON_CMD!"=="" (
+        if exist %%P (
+            set "PYTHON_CMD=%%~P"
+        )
     )
 )
 
+REM Si no se encontro por ruta, intentar 'python' pero verificar que es real
 if "!PYTHON_CMD!"=="" (
-    python3 --version >nul 2>&1
-    if !errorlevel! equ 0 (
-        set "PYTHON_CMD=python3"
-    )
-)
-
-REM Buscar en ubicaciones comunes si no se encontro
-if "!PYTHON_CMD!"=="" (
-    if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
-        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
-    )
-    if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
-        set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
-        set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts"
-    )
-    if exist "C:\Python312\python.exe" (
-        set "PYTHON_CMD=C:\Python312\python.exe"
-        set "PATH=!PATH!;C:\Python312;C:\Python312\Scripts"
-    )
-    if exist "C:\Python311\python.exe" (
-        set "PYTHON_CMD=C:\Python311\python.exe"
-        set "PATH=!PATH!;C:\Python311;C:\Python311\Scripts"
+    for /f "tokens=*" %%v in ('python -c "import sys; print(sys.executable)" 2^>nul') do (
+        if exist "%%v" set "PYTHON_CMD=%%v"
     )
 )
 
@@ -85,49 +77,28 @@ if "!PYTHON_CMD!"=="" (
         echo [ERROR] No se pudo descargar Python.
         echo   Instale manualmente desde: https://www.python.org/downloads/
         echo   IMPORTANTE: Marque "Add Python to PATH" durante la instalacion.
-        echo   IMPORTANTE: Desactive el alias de Microsoft Store:
-        echo     Configuracion ^> Aplicaciones ^> Alias de ejecucion ^> Desactive "python.exe"
         exit /b 1
     )
     echo [INFO] Instalando Python 3.12 ^(esto puede tardar un minuto^)...
     "%TEMP%\python-setup.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1
     del "%TEMP%\python-setup.exe" 2>nul
     timeout /t 5 /nobreak >nul
-    set "PATH=!PATH!;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts"
+    REM Buscar el Python recien instalado
     if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
         set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
         echo [OK] Python 3.12 instalado correctamente
     ) else (
         echo [ERROR] Python se instalo pero no se encuentra.
         echo   Cierre esta terminal, abra una nueva y ejecute setup.bat de nuevo.
-        echo   Si el problema persiste, desactive el alias de Microsoft Store:
-        echo     Configuracion ^> Aplicaciones ^> Alias de ejecucion ^> Desactive "python.exe"
         exit /b 1
     )
 )
 
-REM Verificar versión de Python
-for /f "tokens=2 delims= " %%v in ('%PYTHON_CMD% --version 2^>^&1') do set "PYTHON_VERSION=%%v"
-for /f "tokens=1,2 delims=." %%a in ("%PYTHON_VERSION%") do (
-    set "PY_MAJOR=%%a"
-    set "PY_MINOR=%%b"
-)
+echo [OK] Python encontrado: !PYTHON_CMD!
 
-if !PY_MAJOR! lss %MIN_PYTHON_MAJOR% (
-    echo [ERROR] Python %PYTHON_VERSION% encontrado, pero se requiere ^>= %MIN_PYTHON_MAJOR%.%MIN_PYTHON_MINOR%
-    echo   Descargue la version mas reciente desde:
-    echo     https://www.python.org/downloads/
-    exit /b 1
-)
-if !PY_MAJOR! equ %MIN_PYTHON_MAJOR% (
-    if !PY_MINOR! lss %MIN_PYTHON_MINOR% (
-        echo [ERROR] Python %PYTHON_VERSION% encontrado, pero se requiere ^>= %MIN_PYTHON_MAJOR%.%MIN_PYTHON_MINOR%
-        echo   Descargue la version mas reciente desde:
-        echo     https://www.python.org/downloads/
-        exit /b 1
-    )
-)
-echo [OK] Python %PYTHON_VERSION% encontrado
+REM Obtener version de Python
+for /f "tokens=2 delims= " %%v in ('"!PYTHON_CMD!" --version 2^>^&1') do set "PYTHON_VERSION=%%v"
+echo [OK] Python !PYTHON_VERSION!
 
 REM Verificar Node.js
 echo [INFO] Verificando Node.js...
