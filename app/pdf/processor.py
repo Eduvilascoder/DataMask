@@ -164,6 +164,10 @@ class PDFProcessor:
             doc_copy.saveIncr()
             doc_copy.close()
 
+            # Procesar PDFs embebidos (archivos adjuntos dentro del PDF)
+            embedded_entities = self._process_embedded_pdfs(output_path)
+            all_entities.extend(embedded_entities)
+
             # Generar versión Markdown ofuscada
             self._generate_markdown(input_path, all_entities)
 
@@ -565,6 +569,98 @@ class PDFProcessor:
                 message=msg,
                 recoverable=True,
             ) from exc
+
+    def _process_embedded_pdfs(self, pdf_path: Path) -> list[DetectedEntity]:
+        """Procesa PDFs embebidos (adjuntos) dentro de un PDF.
+
+        Extrae cada archivo PDF adjunto, lo procesa recursivamente
+        para detectar y ofuscar datos sensibles, y lo reincrusta
+        en el PDF principal.
+
+        Args:
+            pdf_path: Ruta al PDF (ya copiado a ofuscados/).
+
+        Returns:
+            Lista de entidades detectadas en los embebidos.
+        """
+        import tempfile
+
+        all_embedded_entities: list[DetectedEntity] = []
+
+        try:
+            doc = fitz.open(str(pdf_path))
+            embedded_count = doc.embfile_count()
+
+            if embedded_count == 0:
+                doc.close()
+                return []
+
+            logger.info("PDF tiene %d archivo(s) embebido(s)", embedded_count)
+
+            for idx in range(embedded_count):
+                info = doc.embfile_info(idx)
+                filename = info.get("filename", f"embedded_{idx}")
+
+                # Solo procesar PDFs embebidos
+                if not filename.lower().endswith(".pdf"):
+                    logger.debug("Archivo embebido '%s' no es PDF, omitiendo", filename)
+                    continue
+
+                logger.info("Procesando PDF embebido: %s", filename)
+
+                # Extraer el archivo embebido a un temporal
+                file_data = doc.embfile_get(idx)
+                with tempfile.NamedTemporaryFile(
+                    suffix=".pdf", delete=False, prefix="datamask_emb_"
+                ) as tmp:
+                    tmp.write(file_data)
+                    tmp_path = tmp.name
+
+                try:
+                    # Abrir el PDF embebido y procesar
+                    emb_doc = fitz.open(tmp_path)
+                    emb_entities: list[DetectedEntity] = []
+
+                    for page_num in range(len(emb_doc)):
+                        page = emb_doc[page_num]
+                        text = page.get_text()
+                        if not text.strip():
+                            continue
+                        entities = self._ner_engine.detect(text, page_num)
+                        emb_entities.extend(entities)
+                        if entities:
+                            self._apply_redactions(page, entities)
+
+                    if emb_entities:
+                        # Guardar el PDF embebido procesado
+                        emb_doc.save(tmp_path)
+                        emb_doc.close()
+
+                        # Reemplazar el embebido en el PDF principal
+                        with open(tmp_path, "rb") as f:
+                            new_data = f.read()
+                        doc.embfile_upd(idx, new_data)
+                        all_embedded_entities.extend(emb_entities)
+                        logger.info(
+                            "PDF embebido '%s': %d entidades ofuscadas",
+                            filename, len(emb_entities),
+                        )
+                    else:
+                        emb_doc.close()
+
+                finally:
+                    import os
+                    os.unlink(tmp_path)
+
+            if all_embedded_entities:
+                doc.saveIncr()
+
+            doc.close()
+
+        except Exception as exc:
+            logger.warning("Error procesando embebidos: %s", exc)
+
+        return all_embedded_entities
 
     def _ensure_output_dir(self) -> None:
         """Crea el directorio de salida si no existe."""
