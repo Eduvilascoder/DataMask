@@ -514,6 +514,26 @@ class NEREngine:
                     confidence=0.80,
                     page=page,
                 ))
+            # También detectar líneas en Title Case (firmas)
+            # Ej: "Gustavo Ariel Vilas" como línea sola
+            elif (
+                2 <= len(words) <= 4
+                and stripped.replace(" ", "").isalpha()
+                and all(w[0].isupper() and w[1:].islower() for w in words if len(w) > 1)
+                and not any(w.upper() in _NON_NAME_WORDS for w in words)
+                and all(len(w) >= 2 for w in words)
+                and len(stripped) <= 40
+            ):
+                start = offset_start + (len(line) - len(line.lstrip()))
+                end = start + len(stripped)
+                entities.append(DetectedEntity(
+                    text=stripped,
+                    entity_type=SensitiveDataType.NOMBRE,
+                    start=start,
+                    end=end,
+                    confidence=0.78,
+                    page=page,
+                ))
 
             offset = offset_start + len(line) + 1
 

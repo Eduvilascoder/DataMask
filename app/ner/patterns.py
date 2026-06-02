@@ -32,14 +32,14 @@ _DNI_CONTEXT_KEYWORDS = (
 # Regex DNI con contexto: requiere una palabra clave dentro de los
 # 40 caracteres previos al número
 _DNI_CONTEXT_PATTERN = re.compile(
-    _DNI_CONTEXT_KEYWORDS + r"[:\s\-\.Nº°#]{0,15}(\d{2}\.?\d{3}\.?\d{3})\b",
+    _DNI_CONTEXT_KEYWORDS + r"[:\s\-\.Nº°#]{0,15}(\d{2}\.?\d{3}\.?\d{2,3})\b",
     re.IGNORECASE,
 )
 
 # DNI con puntos explícitos (XX.XXX.XXX) — esto casi siempre es un DNI
 # y no un número de referencia genérico
 _DNI_DOTTED_PATTERN = re.compile(
-    r"\b(\d{2}\.\d{3}\.\d{3})\b"
+    r"\b(\d{1,2}\.\d{3}\.\d{3})\b"
 )
 
 # Patrones regex compilados para cada tipo de dato sensible
@@ -125,6 +125,12 @@ def detect_with_regex(text: str, page: int) -> list[DetectedEntity]:
     # Detección contextual de DNI
     entities.extend(_detect_dni_contextual(text, page))
 
+    # Detección de direcciones con formato calle + número
+    entities.extend(_detect_addresses(text, page))
+
+    # Detección de nombres con título/prefijo
+    entities.extend(_detect_names_with_title(text, page))
+
     # Detección de los demás tipos con regex simple
     for pattern, entity_type in _PATTERNS:
         for match in pattern.finditer(text):
@@ -181,7 +187,7 @@ def _detect_dni_contextual(text: str, page: int) -> list[DetectedEntity]:
                 page=page,
             ))
 
-    # 2. DNI con formato puntuado explícito (XX.XXX.XXX)
+    # 2. DNI con formato puntuado explícito (X.XXX.XXX o XX.XXX.XXX)
     # Un número con puntos separadores casi siempre es un DNI
     for match in _DNI_DOTTED_PATTERN.finditer(text):
         dni_text = match.group(1)
@@ -197,6 +203,126 @@ def _detect_dni_contextual(text: str, page: int) -> list[DetectedEntity]:
                 start=start,
                 end=end,
                 confidence=REGEX_CONFIDENCE,
+                page=page,
+            ))
+
+    return entities
+
+
+# --- Patrones para direcciones con formato calle + número ---
+
+# Palabras que indican una calle/dirección
+_STREET_PREFIXES = (
+    r"(?:calle|Calle|CALLE|av\.?|Av\.?|AV\.?|avenida|Avenida|"
+    r"bv\.?|Bv\.?|boulevard|Boulevard|"
+    r"pasaje|Pasaje|pje\.?|"
+    r"diagonal|Diagonal)"
+)
+
+# Dirección: prefijo de calle + nombre + número
+_ADDRESS_PATTERN = re.compile(
+    r"(?:" + _STREET_PREFIXES + r"\s+)?"
+    r"([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ]*)*)"
+    r"\s+(\d{1,5}(?:[/\-]\d{1,4})?)"
+    r"(?:\s*,?\s*(?:CABA|C\.?A\.?B\.?A\.?|Capital Federal|Buenos Aires|"
+    r"piso\s+\d+|[A-Z]{1,2}|dto\.?\s*\w+))?",
+    re.MULTILINE,
+)
+
+# Patrón más específico: "calle X NNNN" con keyword explícita
+_ADDRESS_WITH_KEYWORD = re.compile(
+    r"(?:calle|Calle|CALLE|av\.?|Av\.?|AV\.?|avenida|Avenida|"
+    r"domicilio|Domicilio|dirección|Dirección|sitos?\s+en\s+(?:la\s+)?(?:calle)?)"
+    r"\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\s]+\d{1,5}(?:[/\-]\d{1,4})?(?:\s*,?\s*(?:CABA|C\.?A\.?B\.?A\.?|Capital Federal))?)",
+    re.IGNORECASE,
+)
+
+# --- Patrones para nombres con título/prefijo ---
+
+_NAME_WITH_TITLE = re.compile(
+    r"(?:Sr\.?|Sra\.?|Srta\.?|Dr\.?|Dra\.?|Lic\.?|Ing\.?|"
+    r"Escriban[oa]|Abog\.?|Prof\.?|Titular|heredero\s+del\s+Sr\.?)"
+    r"\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,4})",
+    re.UNICODE,
+)
+
+
+def _detect_addresses(text: str, page: int) -> list[DetectedEntity]:
+    """Detecta direcciones postales con formato calle + número.
+
+    Args:
+        text: Texto a analizar.
+        page: Número de página.
+
+    Returns:
+        Lista de entidades DIRECCION detectadas.
+    """
+    entities: list[DetectedEntity] = []
+    seen_positions: set[tuple[int, int]] = set()
+
+    for match in _ADDRESS_WITH_KEYWORD.finditer(text):
+        addr_text = match.group(1).strip()
+        start = match.start(1)
+        end = match.end(1)
+        pos_key = (start, end)
+
+        # Filtrar direcciones que son solo un número o muy cortas
+        if len(addr_text) < 5:
+            continue
+
+        if pos_key not in seen_positions:
+            seen_positions.add(pos_key)
+            entities.append(DetectedEntity(
+                text=addr_text,
+                entity_type=SensitiveDataType.DIRECCION,
+                start=start,
+                end=end,
+                confidence=0.92,
+                page=page,
+            ))
+
+    return entities
+
+
+def _detect_names_with_title(text: str, page: int) -> list[DetectedEntity]:
+    """Detecta nombres propios precedidos por títulos (Sr., Dra., Escribana, etc.)
+
+    Args:
+        text: Texto a analizar.
+        page: Número de página.
+
+    Returns:
+        Lista de entidades NOMBRE detectadas.
+    """
+    entities: list[DetectedEntity] = []
+    seen_positions: set[tuple[int, int]] = set()
+
+    for match in _NAME_WITH_TITLE.finditer(text):
+        name_text = match.group(1).strip()
+        start = match.start(1)
+        end = match.end(1)
+        pos_key = (start, end)
+
+        # Filtrar si es un nombre de empresa o muy corto
+        if len(name_text) < 4:
+            continue
+
+        # Filtrar palabras que no son nombres
+        _NON_NAMES = {
+            "Argentina", "Buenos Aires", "Capital Federal",
+            "Administración", "Declaración", "Manifestación",
+        }
+        if name_text in _NON_NAMES:
+            continue
+
+        if pos_key not in seen_positions:
+            seen_positions.add(pos_key)
+            entities.append(DetectedEntity(
+                text=name_text,
+                entity_type=SensitiveDataType.NOMBRE,
+                start=start,
+                end=end,
+                confidence=0.92,
                 page=page,
             ))
 
