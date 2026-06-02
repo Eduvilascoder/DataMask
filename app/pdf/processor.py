@@ -33,6 +33,7 @@ _TAG_COLORS: dict[str, tuple[float, float, float]] = {
     "CUENTA_BANCARIA": (0.85, 0.95, 0.95),
     "PASAPORTE": (1, 1, 0.8),
     "FECHA": (0.95, 0.95, 0.8),
+    "EXPEDIENTE": (0.85, 0.95, 0.85),
 }
 
 

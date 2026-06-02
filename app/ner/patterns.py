@@ -99,6 +99,48 @@ _PATTERNS: list[tuple[re.Pattern[str], SensitiveDataType]] = [
         ),
         SensitiveDataType.FECHA,
     ),
+    # Expediente GEDO/TAD: EX-2025-12345678-APN-SCEYM#MEC
+    (
+        re.compile(
+            r"\bEX-\d{4}-\d{6,10}-[A-Z]{2,4}-[A-Z0-9#]+\b"
+        ),
+        "EXPEDIENTE",
+    ),
+    # Expediente judicial: "Expte. Nº 12345/2024", "Expediente N° 1234/24"
+    (
+        re.compile(
+            r"\b(?:Expte\.?|Expediente|Exp\.?)\s*"
+            r"(?:N[°ºo]\.?|Nro\.?|Número)?\s*"
+            r"(\d{1,8}[/\-]\d{2,4})\b",
+            re.IGNORECASE,
+        ),
+        "EXPEDIENTE",
+    ),
+    # Expediente administrativo provincial: EXP-S01:0001234/2024
+    (
+        re.compile(
+            r"\bEXP-[A-Z]\d{2}:\d{4,8}/\d{2,4}\b"
+        ),
+        "EXPEDIENTE",
+    ),
+    # Expediente con formato IF/NO/PV (informes, notas, providencias GEDO)
+    # IF-2025-12345678-APN-XXX#YYY, NO-2025-12345678-APN-XXX#YYY
+    (
+        re.compile(
+            r"\b(?:IF|NO|PV|DI|RS|RE|ME|AC|TRI|DOCFI)-\d{4}-\d{6,10}-[A-Z]{2,4}-[A-Z0-9#]+\b"
+        ),
+        "EXPEDIENTE",
+    ),
+    # Expediente con caratulación: "Actuación Nº 12345-1234/2024"
+    (
+        re.compile(
+            r"\b(?:Actuación|Causa|Legajo|Sumario)\s*"
+            r"(?:N[°ºo]\.?|Nro\.?)?\s*"
+            r"(\d{1,8}(?:-\d{1,6})?/\d{2,4})\b",
+            re.IGNORECASE,
+        ),
+        "EXPEDIENTE",
+    ),
 ]
 
 
