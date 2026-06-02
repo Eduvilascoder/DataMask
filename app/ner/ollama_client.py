@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.1:8b"
-OLLAMA_TIMEOUT = 30.0  # segundos
+OLLAMA_TIMEOUT = 60.0  # segundos
 
 # Prompt para detección de PII
 NER_PROMPT = """Analiza el siguiente texto y extrae TODOS los datos personales sensibles.
@@ -123,19 +123,21 @@ def detect_with_ollama(
         return []
 
     # Truncar texto muy largo para evitar timeouts
-    max_chars = 3000
+    max_chars = 8000
     truncated = text[:max_chars] if len(text) > max_chars else text
 
     template = prompt_template if prompt_template else NER_PROMPT
 
-    # Formatear el prompt - soportar {text} y {texto_del_documento} como placeholders
+    # Formatear el prompt - soportar múltiples placeholders
     try:
         if "{text}" in template:
             prompt = template.format(text=truncated)
         elif "{texto_del_documento}" in template:
             prompt = template.format(texto_del_documento=truncated)
+        elif "{texto}" in template:
+            prompt = template.format(texto=truncated)
         else:
-            # Si no tiene placeholder, agregar el texto al final
+            # Si no tiene placeholder conocido, agregar el texto al final
             prompt = template + "\n" + truncated
     except (KeyError, ValueError) as exc:
         logger.error("Error al formatear prompt de Ollama: %s. Usando prompt por defecto.", exc)
