@@ -50,7 +50,11 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isActive, onCom
           setCurrentFile(event.file || '');
           setCurrentIndex(event.index || 0);
           setTotalFiles(event.total || 0);
-          const pct = event.total > 0 ? Math.round((event.index / event.total) * 100) : 0;
+          // Avanzar a un punto intermedio entre el archivo anterior y el actual
+          const baseProgress = event.total > 0 ? (event.index / event.total) * 100 : 0;
+          const stepSize = event.total > 0 ? (1 / event.total) * 100 : 0;
+          // Al iniciar un archivo, avanzar al 30% del paso
+          const pct = Math.round(baseProgress + stepSize * 0.3);
           setPercentage(pct);
         }
 
@@ -60,7 +64,6 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isActive, onCom
         }
 
         if (type === 'file_error') {
-          // Continue — just update progress
           const pct = event.total > 0 ? Math.round(((event.index + 1) / event.total) * 100) : 100;
           setPercentage(pct);
         }
@@ -109,12 +112,14 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ isActive, onCom
 
         {!summary && !error && (
           <SpaceBetween size="s">
-            <ProgressBar
-              value={percentage}
-              label={`Procesando archivo ${currentIndex + 1} de ${totalFiles}`}
-              description={`Archivo actual: ${currentFile}`}
-              variant="standalone"
-            />
+            <div style={{ transition: 'all 0.5s ease-in-out' }}>
+              <ProgressBar
+                value={percentage}
+                label={`Procesando archivo ${currentIndex + 1} de ${totalFiles}`}
+                description={`Archivo actual: ${currentFile}`}
+                variant="standalone"
+              />
+            </div>
           </SpaceBetween>
         )}
 
