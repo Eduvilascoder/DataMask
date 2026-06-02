@@ -20,6 +20,7 @@ class SensitiveDataType(str, Enum):
     DNI = "DNI"
     CUIT_CUIL = "CUIT_CUIL"
     PASAPORTE = "PASAPORTE"
+    FECHA = "FECHA"
 
 
 class TypeConfig(BaseModel):
@@ -39,6 +40,7 @@ class TypeConfig(BaseModel):
     dni: bool = True
     cuit_cuil: bool = True
     pasaporte: bool = True
+    fecha: bool = True
 
 
 class FileInfo(BaseModel):

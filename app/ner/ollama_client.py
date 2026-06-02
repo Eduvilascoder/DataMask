@@ -229,12 +229,14 @@ def _parse_ollama_response(
             "CELULAR": "CELULAR",
             "DNI": "DNI",
             "DNI_DOCUMENTO": "DNI",
-            "DATOS_BANCARIOS": "DATOS_BANCARIOS",
+            "DATOS_BANCARIOS": "CUENTA_BANCARIA",
             "TARJETA_CREDITO": "TARJETA_CREDITO",
             "CUENTA_BANCARIA": "CUENTA_BANCARIA",
             "CUIT_CUIL": "CUIT_CUIL",
             "PASAPORTE": "PASAPORTE",
-            "FECHA_NACIMIENTO": "FECHA_NACIMIENTO",
+            "FECHA_NACIMIENTO": "FECHA",
+            "FECHAS": "FECHA",
+            "FECHA": "FECHA",
             "IP_DISPOSITIVO": "IP_DISPOSITIVO",
         }
 

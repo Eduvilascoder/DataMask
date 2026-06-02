@@ -31,6 +31,7 @@ _TYPE_CONFIG_MAP: dict[str, SensitiveDataType] = {
     "dni": SensitiveDataType.DNI,
     "cuit_cuil": SensitiveDataType.CUIT_CUIL,
     "pasaporte": SensitiveDataType.PASAPORTE,
+    "fecha": SensitiveDataType.FECHA,
 }
 
 

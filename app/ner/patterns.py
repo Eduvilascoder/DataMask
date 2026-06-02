@@ -9,6 +9,12 @@ from app.models import DetectedEntity, SensitiveDataType
 # Confianza fija para matches regex exactos
 REGEX_CONFIDENCE = 0.95
 
+# Meses en español para detección de fechas textuales
+_MESES_ES = (
+    "enero|febrero|marzo|abril|mayo|junio|"
+    "julio|agosto|septiembre|octubre|noviembre|diciembre"
+)
+
 # Patrones regex compilados para cada tipo de dato sensible
 _PATTERNS: list[tuple[re.Pattern[str], SensitiveDataType]] = [
     # DNI: 7 u 8 dígitos, opcionalmente separados por puntos (XX.XXX.XXX)
@@ -51,6 +57,25 @@ _PATTERNS: list[tuple[re.Pattern[str], SensitiveDataType]] = [
     (
         re.compile(r"\b\d{22}\b"),
         SensitiveDataType.CUENTA_BANCARIA,
+    ),
+    # Número de cuenta con guiones: formato tipo 3764-575886-12000
+    # (4 dígitos, guión, 6 dígitos, guión, 5 dígitos)
+    (
+        re.compile(r"\b\d{4}\-\d{5,6}\-\d{4,5}\b"),
+        SensitiveDataType.CUENTA_BANCARIA,
+    ),
+    # Fecha DD/MM/AAAA o DD/MM/AA (con / o -)
+    (
+        re.compile(r"\b\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}\b"),
+        SensitiveDataType.FECHA,
+    ),
+    # Fecha textual en español: "22 de Junio 2025", "4 de agosto de 2025"
+    (
+        re.compile(
+            r"\b\d{1,2}\s+de\s+(?:" + _MESES_ES + r")\s+(?:de\s+)?\d{4}\b",
+            re.IGNORECASE,
+        ),
+        SensitiveDataType.FECHA,
     ),
 ]
 
