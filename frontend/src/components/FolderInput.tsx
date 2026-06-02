@@ -87,7 +87,8 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
             onChange={({ detail }) => setPath(detail.value)}
             onKeyDown={handleKeyDown}
             placeholder={es.processing.folderInput.placeholder}
-            disabled={isLoading}
+            disabled={true}
+            readOnly
             type="text"
           />
         </FormField>
