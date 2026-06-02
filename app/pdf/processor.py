@@ -14,7 +14,7 @@ from pathlib import Path
 import fitz
 
 from app.exceptions import PDFProcessingError
-from app.models import DetectedEntity, ProcessingResult
+from app.models import DetectedEntity, ProcessingResult, SensitiveDataType
 from app.ner.engine import NEREngine
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ _TAG_COLORS: dict[str, tuple[float, float, float]] = {
     "TARJETA_CREDITO": (1, 0.85, 0.92),
     "CUENTA_BANCARIA": (0.85, 0.95, 0.95),
     "PASAPORTE": (1, 1, 0.8),
+    "FECHA": (0.95, 0.95, 0.8),
 }
 
 
@@ -488,6 +489,14 @@ class PDFProcessor:
             text_instances = page.search_for(entity.text)
 
             if not text_instances:
+                # Estrategia alternativa para fechas: buscar componentes
+                # por separado cuando el separador (/ o -) está en un
+                # span distinto del PDF y search_for no lo encuentra unido.
+                text_instances = self._search_date_fragments(
+                    page, entity
+                )
+
+            if not text_instances:
                 # Si no se encuentra el texto fusionado, buscar por palabras
                 # individuales y crear un bounding box que las cubra
                 words = entity.text.split()
@@ -555,6 +564,90 @@ class PDFProcessor:
                 )
 
         page.apply_redactions()
+
+    def _search_date_fragments(
+        self, page: fitz.Page, entity: DetectedEntity
+    ) -> list[fitz.Rect]:
+        """Busca fechas fragmentadas en la página del PDF.
+
+        Cuando search_for no encuentra una fecha como "18/11/25",
+        puede ser porque el PDF tiene los números y separadores en
+        spans diferentes. Este método busca los fragmentos numéricos
+        individuales y crea un bounding box que los cubra.
+
+        Args:
+            page: Página del documento fitz.
+            entity: Entidad de tipo FECHA a buscar.
+
+        Returns:
+            Lista de Rects donde se encontró la fecha, o lista vacía.
+        """
+        import re as _re
+
+        # Solo aplicar a entidades tipo FECHA con formato dd/mm/aa(aa)
+        if entity.entity_type not in (
+            SensitiveDataType.FECHA, "FECHA"
+        ):
+            return []
+
+        fecha_match = _re.match(
+            r"^(\d{1,2})([/\-])(\d{1,2})\2(\d{2,4})$", entity.text
+        )
+        if not fecha_match:
+            return []
+
+        day, sep, month, year = (
+            fecha_match.group(1),
+            fecha_match.group(2),
+            fecha_match.group(3),
+            fecha_match.group(4),
+        )
+
+        # Intentar variantes de búsqueda
+        variants = [
+            entity.text,                          # "18/11/25" original
+            f"{day}{sep}{month}{sep}{year}",      # reconstruido (igual)
+            f"{day} {sep} {month} {sep} {year}",  # con espacios alrededor del sep
+            f"{day}{sep} {month}{sep} {year}",    # espacios después del sep
+        ]
+
+        for variant in variants:
+            rects = page.search_for(variant)
+            if rects:
+                return rects
+
+        # Último recurso: buscar los componentes numéricos por separado
+        # y combinarlos si están en la misma línea y proximidad horizontal
+        day_rects = page.search_for(day)
+        year_rects = page.search_for(year)
+
+        if not day_rects or not year_rects:
+            return []
+
+        results: list[fitz.Rect] = []
+        for dr in day_rects:
+            for yr in year_rects:
+                # Misma línea (tolerancia vertical de 3px)
+                if abs(dr.y0 - yr.y0) > 3:
+                    continue
+                # El year debe estar a la derecha del day
+                if yr.x0 <= dr.x0:
+                    continue
+                # Distancia horizontal razonable para una fecha
+                # (no más de 80px entre inicio del día y fin del año)
+                width = yr.x1 - dr.x0
+                if width > 80:
+                    continue
+                combined = fitz.Rect(
+                    dr.x0, min(dr.y0, yr.y0),
+                    yr.x1, max(dr.y1, yr.y1),
+                )
+                results.append(combined)
+                break  # Tomar solo el primer match válido
+            if results:
+                break
+
+        return results
 
     def _generate_output_path(self, input_path: str) -> Path:
         """Genera la ruta de salida con sufijo _ofuscado.

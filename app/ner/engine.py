@@ -288,13 +288,15 @@ class NEREngine:
         """Resuelve conflictos cuando entidades se solapan.
 
         Cuando dos o más entidades se solapan en posición,
-        se conserva la de mayor confianza.
+        aplica heurísticas de prioridad:
+        1. FECHA con formato claro (contiene / o -) siempre gana sobre DNI
+        2. Si no hay heurística aplicable, se conserva la de mayor confianza.
 
         Args:
             entities: Lista de entidades potencialmente solapadas.
 
         Returns:
-            Lista sin solapamientos, conservando la de mayor confianza.
+            Lista sin solapamientos, conservando la más apropiada.
         """
         if not entities:
             return []
@@ -311,10 +313,10 @@ class NEREngine:
             overlaps = False
             for accepted in resolved:
                 if self._entities_overlap(entity, accepted):
-                    # Si la nueva tiene mayor confianza, reemplazar
-                    if entity.confidence > accepted.confidence:
+                    winner = self._pick_winner(entity, accepted)
+                    if winner is not accepted:
                         resolved.remove(accepted)
-                        resolved.append(entity)
+                        resolved.append(winner)
                     overlaps = True
                     break
 
@@ -322,6 +324,58 @@ class NEREngine:
                 resolved.append(entity)
 
         return sorted(resolved, key=lambda e: e.start)
+
+    @staticmethod
+    def _pick_winner(
+        a: DetectedEntity, b: DetectedEntity
+    ) -> DetectedEntity:
+        """Elige la entidad ganadora cuando dos se solapan.
+
+        Aplica heurísticas de formato antes de caer a comparación
+        de confianza pura.
+
+        Reglas:
+        - FECHA con separadores (/ o -) gana sobre DNI porque un DNI
+          nunca contiene barras ni guiones internos entre dígitos.
+        - CUENTA_BANCARIA con formato X-X-X gana sobre FECHA.
+        - En ausencia de heurística, gana la de mayor confianza.
+        """
+        import re as _re
+
+        # Heurística: FECHA con separadores gana sobre DNI
+        fecha_pattern = _re.compile(r"^\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}$")
+
+        # Si una es FECHA con formato claro y la otra es DNI, FECHA gana
+        if (
+            a.entity_type == SensitiveDataType.FECHA
+            and b.entity_type == SensitiveDataType.DNI
+            and fecha_pattern.match(a.text)
+        ):
+            return a
+        if (
+            b.entity_type == SensitiveDataType.FECHA
+            and a.entity_type == SensitiveDataType.DNI
+            and fecha_pattern.match(b.text)
+        ):
+            return b
+
+        # Heurística: CUENTA_BANCARIA con guiones gana sobre FECHA
+        cuenta_pattern = _re.compile(r"^\d{4}\-\d{5,6}\-\d{4,5}$")
+        if (
+            a.entity_type == SensitiveDataType.CUENTA_BANCARIA
+            and b.entity_type == SensitiveDataType.FECHA
+            and cuenta_pattern.match(a.text)
+        ):
+            return a
+        if (
+            b.entity_type == SensitiveDataType.CUENTA_BANCARIA
+            and a.entity_type == SensitiveDataType.FECHA
+            and cuenta_pattern.match(b.text)
+        ):
+            return b
+
+        # Default: mayor confianza gana
+        return a if a.confidence >= b.confidence else b
 
     def _merge_adjacent_same_type(
         self, entities: list[DetectedEntity], original_text: str = ""
@@ -356,7 +410,15 @@ class NEREngine:
             ):
                 should_merge = True
 
-                if "\n" in last.text or "\n" in current.text:
+                # Nunca fusionar entidades FECHA: cada fecha es una
+                # unidad atómica (ej: "18/11/25" no debe fusionarse
+                # con "27/11/25" aunque estén cerca)
+                if current.entity_type == SensitiveDataType.FECHA:
+                    should_merge = False
+
+                if should_merge and (
+                    "\n" in last.text or "\n" in current.text
+                ):
                     should_merge = False
 
                 # Check gap for newlines using original text
