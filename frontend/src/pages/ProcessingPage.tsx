@@ -10,22 +10,24 @@ import {
 } from '@cloudscape-design/components';
 import type { FileInfo } from '../types';
 import { validateFolder, startProcessing } from '../services/api';
+import { useProcessing } from '../context/ProcessingContext';
 import FolderInput from '../components/FolderInput';
 import FileList from '../components/FileList';
 import ProcessingProgress from '../components/ProcessingProgress';
 import es from '../i18n/es';
 
 interface EngineStatus {
-  ollama: { available: boolean; model: string; url: string };
+  ollama: { available: boolean; model: string; url: string; reason?: string };
   spacy: { available: boolean; model: string };
   active_engine: string;
+  configured_engine?: string;
 }
 
 const ProcessingPage: React.FC = () => {
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [folderPath, setFolderPath] = useState('');
+  // Usar context para estado persistente (no se pierde al navegar)
+  const { state, setFolderPath, setFiles, setIsProcessing } = useProcessing();
+
   const [isValidating, setIsValidating] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [validationError, setValidationError] = useState<string | undefined>();
   const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [flashMessages, setFlashMessages] = useState<Array<{
@@ -44,7 +46,7 @@ const ProcessingPage: React.FC = () => {
           setEngineStatus(data);
         }
       } catch {
-        // Silently fail — status indicator just won't show
+        // Silently fail
       }
     };
     fetchEngineStatus();
@@ -76,7 +78,7 @@ const ProcessingPage: React.FC = () => {
   };
 
   const handleStartProcessing = async (selectedFiles?: FileInfo[]) => {
-    if (!folderPath) return;
+    if (!state.folderPath) return;
 
     setIsProcessing(true);
     setFlashMessages([]);
@@ -85,24 +87,22 @@ const ProcessingPage: React.FC = () => {
       const fileNames = selectedFiles && selectedFiles.length > 0
         ? selectedFiles.map(f => f.name)
         : undefined;
-      await startProcessing(folderPath, fileNames);
+      await startProcessing(state.folderPath, fileNames);
     } catch (err) {
       const message = err instanceof Error ? err.message : es.errors.unknownError;
-      setFlashMessages([
-        {
-          type: 'error',
-          content: message,
-          id: 'process-error',
-          dismissible: true,
-        },
-      ]);
+      setFlashMessages([{
+        type: 'error',
+        content: message,
+        id: 'process-error',
+        dismissible: true,
+      }]);
       setIsProcessing(false);
     }
   };
 
   const handleProcessingComplete = useCallback(() => {
     setIsProcessing(false);
-  }, []);
+  }, [setIsProcessing]);
 
   const renderEngineStatus = () => {
     if (!engineStatus) return null;
@@ -116,8 +116,8 @@ const ProcessingPage: React.FC = () => {
         </Box>
       );
     } else if (engineStatus.active_engine === 'spacy') {
-      const isDisabledByConfig = (engineStatus as any).configured_engine === 'spacy';
-      const reason = (engineStatus as any).ollama?.reason;
+      const isDisabledByConfig = engineStatus.configured_engine === 'spacy';
+      const reason = engineStatus.ollama?.reason;
       return (
         <Box margin={{ bottom: 's' }}>
           <StatusIndicator type={isDisabledByConfig ? 'info' : 'warning'}>
@@ -166,22 +166,22 @@ const ProcessingPage: React.FC = () => {
             errorText={validationError}
           />
 
-          {files.length > 0 && (
+          {state.files.length > 0 && (
             <FileList
-              files={files}
+              files={state.files}
               onStartProcessing={handleStartProcessing}
-              isProcessing={isProcessing}
+              isProcessing={state.isProcessing}
             />
           )}
         </SpaceBetween>
       </Container>
 
       <ProcessingProgress
-        isActive={isProcessing}
+        isActive={state.isProcessing}
         onComplete={handleProcessingComplete}
       />
 
-      {!isProcessing && files.length === 0 && !validationError && (
+      {!state.isProcessing && state.files.length === 0 && !validationError && (
         <Alert type="info">
           {es.processing.description}
         </Alert>

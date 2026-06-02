@@ -13,6 +13,7 @@ import LogsPage from './pages/LogsPage';
 import OutputPage from './pages/OutputPage';
 import HelpPage from './pages/HelpPage';
 import DocsPage from './pages/DocsPage';
+import { ProcessingProvider } from './context/ProcessingContext';
 import es from './i18n/es';
 
 const NAV_ITEMS: SideNavigationProps.Item[] = [
@@ -73,7 +74,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <AppContent />
+      <ProcessingProvider>
+        <AppContent />
+      </ProcessingProvider>
     </BrowserRouter>
   );
 };
