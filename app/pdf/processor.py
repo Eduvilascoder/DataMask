@@ -123,7 +123,7 @@ class PDFProcessor:
         try:
             all_entities: list[DetectedEntity] = []
 
-            # Primera pasada: solo detectar entidades (sin modificar)
+            # Primera pasada: detectar entidades en texto visible
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 text = page.get_text()
@@ -133,6 +133,32 @@ class PDFProcessor:
 
                 entities = self._ner_engine.detect(text, page_num)
                 all_entities.extend(entities)
+
+                # También extraer y procesar form fields (widgets)
+                # Los formularios PDF tienen datos en campos separados
+                # Los valores de form fields son datos ingresados por el usuario
+                # y generalmente son datos sensibles
+                widgets = list(page.widgets())
+                if widgets:
+                    for w in widgets:
+                        if not w.field_value or not w.field_value.strip():
+                            continue
+                        val = w.field_value.strip()
+                        # Inferir tipo del dato según el nombre del campo
+                        field_type = self._infer_field_type(w.field_name or "", val)
+                        if not field_type:
+                            continue
+                        # Buscar el valor en el texto de la página
+                        pos = text.find(val)
+                        if pos != -1:
+                            all_entities.append(DetectedEntity(
+                                text=val,
+                                entity_type=field_type,
+                                start=pos,
+                                end=pos + len(val),
+                                confidence=0.92,
+                                page=page_num,
+                            ))
 
             doc.close()
 
@@ -569,6 +595,86 @@ class PDFProcessor:
                 message=msg,
                 recoverable=True,
             ) from exc
+
+    def _infer_field_type(self, field_name: str, value: str) -> str | None:
+        """Infiere el tipo de dato sensible según el nombre del campo y su valor.
+
+        Args:
+            field_name: Nombre del campo del formulario.
+            value: Valor del campo.
+
+        Returns:
+            Tipo de dato sensible o None si no es sensible.
+        """
+        fn = field_name.lower()
+        val = value.strip()
+
+        # Ignorar valores muy cortos (checkboxes, códigos de 1 carácter)
+        if len(val) <= 2:
+            return None
+
+        # Ignorar valores que son nombres de empresas conocidas o códigos
+        ignore_values = {"aws", "amzn", "yes", "no", "on", "off"}
+        if val.lower() in ignore_values:
+            return None
+
+        # Inferir tipo por nombre de campo
+        if any(k in fn for k in ["name", "nombre", "first", "last", "middle", "signer"]):
+            return "NOMBRE"
+        if any(k in fn for k in ["address", "street", "city", "town", "state", "country", "zip", "postal", "province"]):
+            return "DIRECCION"
+        if any(k in fn for k in ["email", "correo", "mail"]):
+            return "EMAIL"
+        if any(k in fn for k in ["phone", "tel", "fax", "celular"]):
+            return "TELEFONO"
+        if any(k in fn for k in ["birth", "nacimiento", "dob", "fecha"]):
+            return "FECHA_NACIMIENTO"
+        if any(k in fn for k in ["ssn", "tin", "itin", "dni", "passport", "id_num", "tax"]):
+            return "DNI_DOCUMENTO"
+
+        # Inferir por patrón del valor
+        import re
+        if re.match(r'\d{2}-\d{2}-\d{4}', val) or re.match(r'\d{2}/\d{2}/\d{4}', val):
+            return "FECHA_NACIMIENTO"
+        if re.match(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', val):
+            return "EMAIL"
+        if re.match(r'\+?\d[\d\s\-]{7,}', val):
+            return "TELEFONO"
+
+        # Si el campo no tiene nombre informativo, intentar por valor
+        # Ignorar códigos cortos y números simples de 1-4 dígitos
+        if val.isdigit() and len(val) <= 4:
+            return None
+
+        # Heurística por contenido: si parece un nombre (palabras capitalizadas)
+        words = val.split()
+        if len(words) >= 1 and all(w[0].isupper() for w in words if w.isalpha()):
+            # Si tiene números, probablemente es una dirección
+            if any(c.isdigit() for c in val):
+                return "DIRECCION"
+            # Si es una sola palabra en mayúsculas de 4+ letras, puede ser país/ciudad
+            if val.isupper() and len(val) >= 4:
+                return "DIRECCION"
+            # Si es título case y sin números, es un nombre
+            if len(val) >= 3 and not val.isupper():
+                return "NOMBRE"
+            # Palabras capitalizadas sin números que no son todo mayúsculas
+            if len(words) >= 1 and len(val) >= 3:
+                return "NOMBRE"
+
+        # Si es todo mayúsculas y tiene 4+ caracteres, puede ser un país/ciudad
+        if val.isupper() and len(val) >= 4 and val.isalpha():
+            return "DIRECCION"
+
+        # Cadenas con números y letras que tienen 5+ caracteres — dirección
+        if any(c.isdigit() for c in val) and any(c.isalpha() for c in val) and len(val) >= 5:
+            return "DIRECCION"
+
+        # Código postal (4-6 dígitos)
+        if val.isdigit() and 4 <= len(val) <= 6:
+            return "DIRECCION"
+
+        return None
 
     def _process_embedded_pdfs(self, pdf_path: Path) -> list[DetectedEntity]:
         """Procesa PDFs embebidos (adjuntos) dentro de un PDF.
