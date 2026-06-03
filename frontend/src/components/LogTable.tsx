@@ -9,6 +9,8 @@ import {
   Badge,
   SpaceBetween,
   Modal,
+  Popover,
+  Link,
 } from '@cloudscape-design/components';
 import type { AuditLogEntry } from '../types';
 import { getLogs, deleteLogs } from '../services/api';
@@ -158,6 +160,27 @@ const LogTable: React.FC = () => {
                 {item.result === 'success' ? es.logs.results.success : es.logs.results.error}
               </StatusIndicator>
             ),
+          },
+          {
+            id: 'error_detail',
+            header: 'Detalle error',
+            cell: (item: AuditLogEntry) => {
+              if (!item.error_detail) return '—';
+              return (
+                <Popover
+                  header="Detalle del error"
+                  content={
+                    <Box variant="code" fontSize="body-s">
+                      {item.error_detail}
+                    </Box>
+                  }
+                  triggerType="custom"
+                  size="large"
+                >
+                  <Link variant="info">Ver error</Link>
+                </Popover>
+              );
+            },
           },
           {
             id: 'entities',
