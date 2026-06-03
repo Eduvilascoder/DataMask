@@ -65,9 +65,14 @@ _PATTERNS: list[tuple[re.Pattern[str], SensitiveDataType]] = [
         re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"),
         SensitiveDataType.EMAIL,
     ),
-    # Tarjeta de crédito: 16 dígitos agrupados de a 4
+    # Tarjeta de crédito: 16 dígitos agrupados de a 4 (Visa, Mastercard, etc.)
     (
         re.compile(r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b"),
+        SensitiveDataType.TARJETA_CREDITO,
+    ),
+    # Tarjeta American Express: 15 dígitos en formato 4-6-5, prefijo 34xx o 37xx
+    (
+        re.compile(r"\b3[47]\d{2}[\s\-]?\d{6}[\s\-]?\d{5}\b"),
         SensitiveDataType.TARJETA_CREDITO,
     ),
     # Pasaporte argentino: AA seguido opcionalmente de una letra y 6 dígitos
@@ -82,6 +87,7 @@ _PATTERNS: list[tuple[re.Pattern[str], SensitiveDataType]] = [
     ),
     # Número de cuenta con guiones: formato tipo 3764-575886-12000
     # (4 dígitos, guión, 6 dígitos, guión, 5 dígitos)
+    # Excluye lo que ya matcheó como tarjeta Amex (prefijos 34xx, 37xx)
     (
         re.compile(r"\b\d{4}\-\d{5,6}\-\d{4,5}\b"),
         SensitiveDataType.CUENTA_BANCARIA,

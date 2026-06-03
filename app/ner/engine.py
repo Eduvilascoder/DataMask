@@ -384,6 +384,18 @@ class NEREngine:
         ):
             return b
 
+        # Heurística: TARJETA_CREDITO gana sobre CUENTA_BANCARIA
+        if (
+            a.entity_type == SensitiveDataType.TARJETA_CREDITO
+            and b.entity_type == SensitiveDataType.CUENTA_BANCARIA
+        ):
+            return a
+        if (
+            b.entity_type == SensitiveDataType.TARJETA_CREDITO
+            and a.entity_type == SensitiveDataType.CUENTA_BANCARIA
+        ):
+            return b
+
         # Default: mayor confianza gana
         return a if a.confidence >= b.confidence else b
 
