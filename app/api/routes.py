@@ -1021,3 +1021,166 @@ async def view_doc(filename: str):
 
     content = file_path.read_text(encoding="utf-8")
     return {"name": filename, "content": content}
+
+
+# --- Endpoints de configuración de motores NER ---
+
+
+@router.get("/config/ollama")
+async def get_ollama_config():
+    """Retorna la configuración actual de Ollama."""
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "ollama.json"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        return data
+    except Exception:
+        return {
+            "model": "llama3.1:8b",
+            "temperature": 0.1,
+            "keep_alive": "10m",
+            "num_ctx": 4096,
+            "num_predict": 1024,
+            "base_url": "http://localhost:11434",
+            "timeout_seconds": 60,
+        }
+
+
+@router.put("/config/ollama")
+async def update_ollama_config(request: Request):
+    """Actualiza la configuración de Ollama."""
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "ollama.json"
+    data = await request.json()
+
+    try:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "WRITE_ERROR", "message": f"No se pudo guardar: {exc}"},
+        )
+
+    return data
+
+
+@router.get("/config/spacy")
+async def get_spacy_config():
+    """Retorna la configuración actual de spaCy."""
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "spacy.json"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        return data
+    except Exception:
+        return {"model": "es_core_news_lg", "available_models": []}
+
+
+@router.put("/config/spacy")
+async def update_spacy_config(request: Request):
+    """Actualiza la configuración de spaCy."""
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "spacy.json"
+    data = await request.json()
+
+    try:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "WRITE_ERROR", "message": f"No se pudo guardar: {exc}"},
+        )
+
+    return data
+
+
+# --- Endpoints de gestión de modelos ---
+
+
+@router.get("/models/ollama")
+async def list_ollama_models():
+    """Lista los modelos disponibles en Ollama local."""
+    import httpx as _httpx
+
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "ollama.json"
+    base_url = "http://localhost:11434"
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        base_url = cfg.get("base_url", base_url)
+    except Exception:
+        pass
+
+    try:
+        response = _httpx.get(f"{base_url}/api/tags", timeout=5.0)
+        if response.status_code != 200:
+            return {"models": [], "error": "Ollama no respondió correctamente."}
+        data = response.json()
+        models = []
+        for m in data.get("models", []):
+            models.append({
+                "name": m.get("name", ""),
+                "size": m.get("size", 0),
+                "modified_at": m.get("modified_at", ""),
+            })
+        return {"models": models}
+    except _httpx.ConnectError:
+        return {"models": [], "error": "Ollama no está corriendo."}
+    except Exception as exc:
+        return {"models": [], "error": str(exc)}
+
+
+@router.post("/models/ollama/pull")
+async def pull_ollama_model(request: Request):
+    """Inicia la descarga de un modelo en Ollama.
+
+    Body: {"model": "llama3.1:8b"}
+    """
+    import httpx as _httpx
+
+    data = await request.json()
+    model_name = data.get("model")
+    if not model_name:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "MISSING_MODEL", "message": "Debe especificar el nombre del modelo."},
+        )
+
+    base_dir = _get_base_dir()
+    config_path = base_dir / "config" / "ollama.json"
+    base_url = "http://localhost:11434"
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        base_url = cfg.get("base_url", base_url)
+    except Exception:
+        pass
+
+    try:
+        # Ollama pull puede tardar — usamos un timeout largo
+        response = _httpx.post(
+            f"{base_url}/api/pull",
+            json={"name": model_name, "stream": False},
+            timeout=600.0,  # 10 minutos máximo para descarga
+        )
+        if response.status_code == 200:
+            return {"message": f"Modelo '{model_name}' descargado exitosamente.", "success": True}
+        else:
+            return {"message": f"Error al descargar: {response.text}", "success": False}
+    except _httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "OLLAMA_UNAVAILABLE", "message": "Ollama no está corriendo."},
+        )
+    except _httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail={"code": "TIMEOUT", "message": "La descarga tardó demasiado. Intente desde terminal: ollama pull " + model_name},
+        )

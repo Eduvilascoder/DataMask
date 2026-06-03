@@ -16,9 +16,35 @@ from app.models import DetectedEntity, SensitiveDataType
 
 logger = logging.getLogger(__name__)
 
+# Defaults — se sobreescriben con config/ollama.json si existe
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.1:8b"
 OLLAMA_TIMEOUT = 60.0  # segundos
+OLLAMA_KEEP_ALIVE = "10m"
+
+
+def _load_ollama_config() -> dict:
+    """Carga la configuración de Ollama desde config/ollama.json."""
+    from pathlib import Path
+
+    config_path = Path(__file__).resolve().parent.parent.parent / "config" / "ollama.json"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        return data
+    except Exception:
+        return {}
+
+
+def get_ollama_model() -> str:
+    """Retorna el modelo configurado."""
+    config = _load_ollama_config()
+    return config.get("model", OLLAMA_MODEL)
+
+
+def get_ollama_temperature() -> float:
+    """Retorna la temperatura configurada."""
+    config = _load_ollama_config()
+    return config.get("temperature", 0.1)
 
 
 def _normalize_type(type_str: str) -> str:
@@ -158,18 +184,31 @@ def detect_with_ollama(
         prompt = NER_PROMPT.format(text=truncated)
 
     try:
+        # Cargar config dinámica
+        ollama_cfg = _load_ollama_config()
+        model = ollama_cfg.get("model", OLLAMA_MODEL)
+        base_url = ollama_cfg.get("base_url", OLLAMA_BASE_URL)
+        keep_alive = ollama_cfg.get("keep_alive", OLLAMA_KEEP_ALIVE)
+        num_ctx = ollama_cfg.get("num_ctx", 4096)
+        num_predict = ollama_cfg.get("num_predict", 1024)
+        timeout = ollama_cfg.get("timeout_seconds", OLLAMA_TIMEOUT)
+        # Si no se pasa temperature explícito, usar el de la config
+        temp = temperature if temperature != 0.1 else ollama_cfg.get("temperature", 0.1)
+
         response = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
+            f"{base_url}/api/generate",
             json={
-                "model": OLLAMA_MODEL,
+                "model": model,
                 "prompt": prompt,
                 "stream": False,
+                "keep_alive": keep_alive,
                 "options": {
-                    "temperature": 0.1,
-                    "num_predict": 1024,
+                    "temperature": temp,
+                    "num_predict": num_predict,
+                    "num_ctx": num_ctx,
                 },
             },
-            timeout=OLLAMA_TIMEOUT,
+            timeout=timeout,
         )
 
         if response.status_code != 200:

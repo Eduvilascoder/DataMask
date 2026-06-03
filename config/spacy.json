@@ -1,0 +1,20 @@
+{
+  "model": "es_core_news_lg",
+  "available_models": [
+    {
+      "id": "es_core_news_sm",
+      "name": "Español - Pequeño (12MB)",
+      "description": "Modelo pequeño para español. Rápido pero menos preciso."
+    },
+    {
+      "id": "es_core_news_md",
+      "name": "Español - Mediano (40MB)",
+      "description": "Modelo mediano para español. Buen balance velocidad/precisión."
+    },
+    {
+      "id": "es_core_news_lg",
+      "name": "Español - Grande (560MB)",
+      "description": "Modelo grande para español. Máxima precisión."
+    }
+  ]
+}

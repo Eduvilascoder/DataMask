@@ -1,0 +1,9 @@
+{
+  "model": "llama3.1:8b",
+  "temperature": 0.1,
+  "keep_alive": "10m",
+  "num_ctx": 4096,
+  "num_predict": 1024,
+  "base_url": "http://localhost:11434",
+  "timeout_seconds": 60
+}

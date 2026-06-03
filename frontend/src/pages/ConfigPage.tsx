@@ -41,6 +41,22 @@ interface FullConfig {
   ignored_ollama_types?: string[];
 }
 
+interface OllamaConfig {
+  model: string;
+  temperature: number;
+  keep_alive: string;
+  num_ctx: number;
+  num_predict: number;
+  base_url: string;
+  timeout_seconds: number;
+}
+
+interface OllamaModel {
+  name: string;
+  size: number;
+  modified_at: string;
+}
+
 interface EngineStatus {
   ollama: { available: boolean; model: string; url: string };
   spacy: { available: boolean; model: string };
@@ -76,6 +92,10 @@ const ConfigPage: React.FC = () => {
   const [newTypeDesc, setNewTypeDesc] = useState('');
   const [newTypePattern, setNewTypePattern] = useState('');
   const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
+  const [ollamaConfig, setOllamaConfig] = useState<OllamaConfig | null>(null);
+  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [pullModel, setPullModel] = useState('');
+  const [pulling, setPulling] = useState(false);
   const [newIgnoredType, setNewIgnoredType] = useState('');
   const [flashMessages, setFlashMessages] = useState<Array<{
     type: 'success' | 'error';
@@ -135,8 +155,34 @@ const ConfigPage: React.FC = () => {
       }
     };
 
+    const fetchOllamaConfig = async () => {
+      try {
+        const response = await fetch('/api/config/ollama');
+        if (response.ok) {
+          const data = await response.json();
+          setOllamaConfig(data);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+
+    const fetchOllamaModels = async () => {
+      try {
+        const response = await fetch('/api/models/ollama');
+        if (response.ok) {
+          const data = await response.json();
+          setOllamaModels(data.models || []);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+
     fetchConfig();
     fetchEngineStatus();
+    fetchOllamaConfig();
+    fetchOllamaModels();
   }, []);
 
   const handleToggle = (key: string, enabled: boolean) => {
@@ -217,6 +263,52 @@ const ConfigPage: React.FC = () => {
     setConfig({ ...config, engine: value });
   };
 
+  const handleSaveOllamaConfig = async () => {
+    if (!ollamaConfig) return;
+    try {
+      const response = await fetch('/api/config/ollama', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ollamaConfig),
+      });
+      if (response.ok) {
+        setFlashMessages([{ type: 'success', content: 'Configuración de Ollama guardada.', id: 'ollama-save-ok', dismissible: true }]);
+      }
+    } catch {
+      setFlashMessages([{ type: 'error', content: 'Error al guardar configuración de Ollama.', id: 'ollama-save-err', dismissible: true }]);
+    }
+  };
+
+  const handlePullModel = async () => {
+    if (!pullModel.trim()) return;
+    setPulling(true);
+    setFlashMessages([{ type: 'success', content: `Descargando modelo "${pullModel}"... Esto puede tardar varios minutos.`, id: 'pull-start', dismissible: true }]);
+    try {
+      const response = await fetch('/api/models/ollama/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: pullModel }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setFlashMessages([{ type: 'success', content: data.message, id: 'pull-ok', dismissible: true }]);
+        // Refresh models list
+        const modelsRes = await fetch('/api/models/ollama');
+        if (modelsRes.ok) {
+          const modelsData = await modelsRes.json();
+          setOllamaModels(modelsData.models || []);
+        }
+        setPullModel('');
+      } else {
+        setFlashMessages([{ type: 'error', content: data.detail?.message || data.message || 'Error al descargar modelo.', id: 'pull-err', dismissible: true }]);
+      }
+    } catch (err) {
+      setFlashMessages([{ type: 'error', content: 'Error de red al descargar modelo.', id: 'pull-err', dismissible: true }]);
+    } finally {
+      setPulling(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!config) return;
     setSaving(true);
@@ -273,7 +365,7 @@ const ConfigPage: React.FC = () => {
         <SpaceBetween size="s">
           {ollamaDisabled && (
             <Alert type="warning">
-              Ollama no está disponible. Verifique que Ollama esté instalado y ejecutándose con el modelo llama3.1:8b.
+              Ollama no está disponible. Verifique que Ollama esté instalado y ejecutándose.
             </Alert>
           )}
           <RadioGroup
@@ -282,17 +374,89 @@ const ConfigPage: React.FC = () => {
             items={[
               {
                 value: 'ollama',
-                label: 'Ollama (Llama 3.1 8B)',
+                label: 'Ollama (IA local)',
                 description: 'Mayor precisión para nombres y direcciones. Requiere Ollama instalado.',
                 disabled: ollamaDisabled,
               },
               {
                 value: 'spacy',
-                label: 'spaCy (es_core_news_lg)',
+                label: 'spaCy (NLP estadístico)',
                 description: 'Más rápido pero menos preciso con nombres en mayúsculas.',
               },
             ]}
           />
+        </SpaceBetween>
+      </Container>
+
+      <Container
+        header={
+          <Header
+            variant="h2"
+            actions={<Button onClick={handleSaveOllamaConfig}>Guardar config Ollama</Button>}
+          >
+            Configuración de Ollama
+          </Header>
+        }
+      >
+        <SpaceBetween size="m">
+          <FormField label="Modelo activo" description="Seleccione un modelo de los descargados o escriba el nombre de uno nuevo.">
+            <SpaceBetween size="xs">
+              {ollamaModels.length > 0 ? (
+                <RadioGroup
+                  value={ollamaConfig?.model || 'llama3.1:8b'}
+                  onChange={({ detail }) => {
+                    if (!ollamaConfig) return;
+                    setOllamaConfig({ ...ollamaConfig, model: detail.value });
+                  }}
+                  items={ollamaModels.map(m => ({
+                    value: m.name,
+                    label: m.name,
+                    description: `${(m.size / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+                  }))}
+                />
+              ) : (
+                <Alert type="info">No se encontraron modelos descargados en Ollama.</Alert>
+              )}
+            </SpaceBetween>
+          </FormField>
+
+          <FormField label="Descargar modelo" description="Ingrese el nombre del modelo (ej: llama3.2:3b, mistral:7b, gemma2:9b)">
+            <SpaceBetween size="xs" direction="horizontal">
+              <Input
+                value={pullModel}
+                onChange={({ detail }) => setPullModel(detail.value)}
+                placeholder="llama3.2:3b"
+                disabled={pulling}
+              />
+              <Button onClick={handlePullModel} loading={pulling} disabled={!pullModel.trim() || pulling}>
+                Descargar
+              </Button>
+            </SpaceBetween>
+          </FormField>
+
+          <FormField label="Temperatura" description="0.0 = determinístico, 1.0 = creativo. Para NER se recomienda 0.1">
+            <Input
+              type="number"
+              value={String(ollamaConfig?.temperature ?? 0.1)}
+              onChange={({ detail }) => {
+                if (!ollamaConfig) return;
+                const val = parseFloat(detail.value);
+                if (!isNaN(val) && val >= 0 && val <= 1) {
+                  setOllamaConfig({ ...ollamaConfig, temperature: val });
+                }
+              }}
+            />
+          </FormField>
+
+          <FormField label="Keep Alive" description="Tiempo que el modelo se mantiene en memoria entre requests (ej: 5m, 10m, 1h)">
+            <Input
+              value={ollamaConfig?.keep_alive || '10m'}
+              onChange={({ detail }) => {
+                if (!ollamaConfig) return;
+                setOllamaConfig({ ...ollamaConfig, keep_alive: detail.value });
+              }}
+            />
+          </FormField>
         </SpaceBetween>
       </Container>
 
