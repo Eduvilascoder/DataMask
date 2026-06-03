@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     print(f"\n{'=' * 50}")
     print(f"  DataMask - Servidor iniciado")
     print(f"  Enmascarar datos sensibles")
-    print(f"  v2.0 - by EduTheCoder")
+    print(f"  v3.1 - by EduTheCoder")
     print(f"")
     print(f"  Accede a la aplicación en:")
     print(f"  http://localhost:{port}")
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="PDF Datos Sensibles",
     description="Aplicación local para ofuscación de datos sensibles en PDFs",
-    version="2.0.0",
+    version="3.1.0",
     lifespan=lifespan,
 )
 
