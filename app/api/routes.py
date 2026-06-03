@@ -429,7 +429,10 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         # Respetar la preferencia de motor del usuario
         if configured_engine == "spacy":
             ner_engine._ollama_available = False
-        # Si es "ollama" pero no está disponible, ya cae a spaCy automáticamente
+        elif configured_engine == "ollama":
+            # Restaurar Ollama si el usuario volvió a seleccionarlo
+            from app.ner.ollama_client import is_ollama_available
+            ner_engine._ollama_available = is_ollama_available()
 
         processor = PDFProcessor(output_dir=output_dir, ner_engine=ner_engine)
     except (OSError, ImportError) as exc:
