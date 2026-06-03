@@ -81,6 +81,7 @@ export interface AuditLogEntry {
   entities_by_type: Record<string, number>;
   error_detail: string | null;
   engine: string | null;
+  processing_time_ms: number;
 }
 
 /** Respuesta paginada de logs. */

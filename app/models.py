@@ -86,3 +86,4 @@ class AuditLogEntry(BaseModel):
     entities_by_type: dict[str, int] = Field(default_factory=dict)
     error_detail: str | None = None
     engine: str | None = None  # "ollama", "spacy", or "hybrid"
+    processing_time_ms: int = 0  # Tiempo de procesamiento en milisegundos

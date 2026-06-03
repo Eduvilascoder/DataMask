@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Table,
   Header,
@@ -7,6 +7,7 @@ import {
   SpaceBetween,
 } from '@cloudscape-design/components';
 import type { FileInfo } from '../types';
+import { useProcessing } from '../context/ProcessingContext';
 import es from '../i18n/es';
 
 interface FileListProps {
@@ -23,7 +24,8 @@ function formatFileSize(bytes: number): string {
 }
 
 const FileList: React.FC<FileListProps> = ({ files, onStartProcessing, isProcessing }) => {
-  const [selectedItems, setSelectedItems] = useState<FileInfo[]>([]);
+  const { state, setSelectedFiles } = useProcessing();
+  const selectedItems = state.selectedFiles;
 
   if (files.length === 0) {
     return (
@@ -37,9 +39,9 @@ const FileList: React.FC<FileListProps> = ({ files, onStartProcessing, isProcess
 
   const handleSelectAll = () => {
     if (allSelected) {
-      setSelectedItems([]);
+      setSelectedFiles([]);
     } else {
-      setSelectedItems([...files]);
+      setSelectedFiles([...files]);
     }
   };
 
@@ -75,7 +77,7 @@ const FileList: React.FC<FileListProps> = ({ files, onStartProcessing, isProcess
       }
       selectionType="multi"
       selectedItems={selectedItems}
-      onSelectionChange={({ detail }) => setSelectedItems(detail.selectedItems as FileInfo[])}
+      onSelectionChange={({ detail }) => setSelectedFiles(detail.selectedItems as FileInfo[])}
       columnDefinitions={[
         {
           id: 'name',

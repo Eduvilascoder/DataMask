@@ -78,6 +78,7 @@ _processing_state: dict = {
     "results": [],
     "completed": False,
     "error": None,
+    "cancelled": False,
 }
 
 _sse_events: asyncio.Queue = asyncio.Queue()
@@ -373,6 +374,7 @@ async def start_processing(request: ProcessRequest) -> ProcessStartResponse:
         "results": [],
         "completed": False,
         "error": None,
+        "cancelled": False,
     }
 
     # Lanzar procesamiento en background
@@ -382,6 +384,31 @@ async def start_processing(request: ProcessRequest) -> ProcessStartResponse:
         message="Procesamiento iniciado.",
         total_files=len(files),
     )
+
+
+@router.post("/process/cancel")
+async def cancel_processing():
+    """Cancela el procesamiento en curso.
+
+    Marca el estado como cancelado para que el loop de procesamiento
+    se detenga en la siguiente iteración.
+
+    Raises:
+        HTTPException 409: Si no hay un procesamiento activo.
+    """
+    global _processing_state
+
+    if not _processing_state["active"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "NO_ACTIVE_PROCESSING",
+                "message": "No hay un procesamiento en curso para cancelar.",
+            },
+        )
+
+    _processing_state["cancelled"] = True
+    return {"message": "Cancelación solicitada. El procesamiento se detendrá tras el archivo actual."}
 
 
 async def _process_files(files: list[FileInfo], folder_path: str) -> None:
@@ -472,7 +499,30 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
     success_count = 0
     failed_count = 0
 
+    import time
+    batch_start_time = time.time()
+    total_volume_bytes = sum(f.size_bytes for f in files)
+
     for i, file_info in enumerate(files):
+        # Verificar cancelación antes de procesar cada archivo
+        if _processing_state.get("cancelled"):
+            await _sse_events.put({
+                "event": "complete",
+                "data": {
+                    "total": len(files),
+                    "success": success_count,
+                    "failed": failed_count,
+                    "cancelled": True,
+                    "processed": i,
+                    "results": [r.model_dump() for r in results],
+                    "elapsed_ms": int((time.time() - batch_start_time) * 1000),
+                    "total_volume_bytes": total_volume_bytes,
+                },
+            })
+            _processing_state["active"] = False
+            _processing_state["completed"] = True
+            return
+
         _processing_state["current_file"] = file_info.name
         _processing_state["processed_files"] = i
 
@@ -506,7 +556,7 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         # Determinar motor activo
         engine_name = "ollama" if ner_engine._ollama_available else "spacy"
 
-        # Registrar en log de auditoría
+        # Registrar en log de auditoría (con tiempo y volumen)
         log_entry = AuditLogEntry(
             filename=file_info.name,
             file_size_bytes=file_info.size_bytes,
@@ -517,6 +567,7 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
             entities_by_type=result.entities_by_type,
             error_detail=result.error,
             engine=engine_name,
+            processing_time_ms=result.processing_time_ms,
         )
         log_service.write_entry(log_entry)
 
@@ -553,6 +604,8 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
     _processing_state["processed_files"] = len(files)
     _processing_state["results"] = [r.model_dump() for r in results]
 
+    elapsed_ms = int((time.time() - batch_start_time) * 1000)
+
     await _sse_events.put({
         "event": "complete",
         "data": {
@@ -560,6 +613,8 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
             "success": success_count,
             "failed": failed_count,
             "results": [r.model_dump() for r in results],
+            "elapsed_ms": elapsed_ms,
+            "total_volume_bytes": total_volume_bytes,
         },
     })
 

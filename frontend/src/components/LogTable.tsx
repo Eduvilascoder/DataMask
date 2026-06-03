@@ -141,6 +141,16 @@ const LogTable: React.FC = () => {
             cell: (item: AuditLogEntry) => renderEngineBadge(item.engine),
           },
           {
+            id: 'processing_time',
+            header: 'Tiempo',
+            cell: (item: AuditLogEntry) => {
+              const ms = item.processing_time_ms || 0;
+              if (ms < 1000) return `${ms} ms`;
+              const s = (ms / 1000).toFixed(1);
+              return `${s}s`;
+            },
+          },
+          {
             id: 'result',
             header: es.logs.columns.result,
             cell: (item: AuditLogEntry) => (
