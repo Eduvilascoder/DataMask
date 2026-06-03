@@ -114,6 +114,7 @@ def get_ollama_status() -> dict:
 def detect_with_ollama(
     text: str, page: int, prompt_template: str | None = None,
     ignored_types: set[str] | None = None,
+    temperature: float = 0.1,
 ) -> list[DetectedEntity]:
     """Detecta nombres y direcciones usando Ollama (Llama 3.1 8B).
 
@@ -126,6 +127,7 @@ def detect_with_ollama(
         prompt_template: Prompt personalizado con placeholder {text}.
             Si no se proporciona, usa NER_PROMPT por defecto.
         ignored_types: Conjunto de tipos a ignorar de la respuesta de Ollama.
+        temperature: Temperatura del modelo (0.0-1.0). Menor = más determinístico.
 
     Returns:
         Lista de entidades detectadas. Lista vacía si Ollama
