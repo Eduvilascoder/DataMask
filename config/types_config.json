@@ -114,6 +114,20 @@
       "label": "CODIGO DE TRAMITE",
       "description": "Detectecta Codigo de Tramite",
       "pattern": "\\bIOPE[0-9]{5}\\b"
+    },
+    {
+      "id": "nombre_judicial",
+      "enabled": true,
+      "label": "NOMBRE",
+      "description": "Detecta nombre del demandante en autos judiciales (antes de c/)",
+      "pattern": "([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})\\s+c/"
+    },
+    {
+      "id": "nombre_judicial_demandado",
+      "enabled": true,
+      "label": "NOMBRE",
+      "description": "Detecta nombre del demandado en autos judiciales (después de c/)",
+      "pattern": "c/\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})"
     }
   ],
   "updated_at": "2026-06-03T15:56:41.904749+00:00",
