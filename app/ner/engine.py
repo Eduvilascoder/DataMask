@@ -2,16 +2,25 @@
 
 Enfoque híbrido:
 - Ollama (Llama 3.1 8B) para nombres y direcciones (comprensión semántica)
-- Patrones regex para formatos estructurados (DNI, CUIT, email, teléfono, etc.)
+- Patrones regex dinámicos desde custom_types en types_config.json
 - Fallback a spaCy si Ollama no está disponible
+
+Los patrones regex NO están hardcodeados. Se cargan desde custom_types
+en el archivo de configuración, lo que permite al usuario agregar,
+editar o desactivar reglas sin tocar código.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 
 from app.models import DetectedEntity, SensitiveDataType, TypeConfig
-from app.ner.patterns import detect_with_regex
+from app.ner.patterns import (
+    compile_patterns_from_config,
+    detect_with_custom_patterns,
+    REGEX_CONFIDENCE,
+)
 from app.ner.ollama_client import detect_with_ollama, is_ollama_available
 
 logger = logging.getLogger(__name__)
@@ -48,6 +57,7 @@ class NEREngine:
         config: TypeConfig | None = None,
         model_name: str = "es_core_news_lg",
         ollama_prompt: str | None = None,
+        custom_types: list[dict] | None = None,
     ) -> None:
         """Inicializa el motor NER.
 
@@ -55,12 +65,15 @@ class NEREngine:
             config: Configuración de tipos activos/inactivos.
             model_name: Nombre del modelo spaCy (fallback).
             ollama_prompt: Prompt personalizado para Ollama.
+            custom_types: Lista de custom_types con patrones regex.
         """
         self._config = config or TypeConfig()
         self._active_types = self._resolve_active_types()
         self._ollama_available = is_ollama_available()
         self._ollama_prompt = ollama_prompt
-        self._custom_patterns: list[tuple[re.Pattern[str], str]] = []
+        self._custom_patterns: list[tuple[re.Pattern[str], str]] = (
+            compile_patterns_from_config(custom_types or [])
+        )
         self._spacy_nlp = None  # Lazy load solo si se necesita
 
         if self._ollama_available:
@@ -83,6 +96,17 @@ class NEREngine:
         self._config = value
         self._active_types = self._resolve_active_types()
 
+    def reload_custom_patterns(self, custom_types: list[dict]) -> None:
+        """Recarga los patrones regex desde custom_types.
+
+        Llamar cuando se actualiza la configuración para que
+        los nuevos patrones se apliquen al siguiente procesamiento.
+
+        Args:
+            custom_types: Lista de custom_types con patrones regex.
+        """
+        self._custom_patterns = compile_patterns_from_config(custom_types)
+
     def detect(self, text: str, page: int) -> list[DetectedEntity]:
         """Detecta entidades sensibles en el texto dado.
 
@@ -104,8 +128,10 @@ class NEREngine:
         else:
             semantic_entities = self._detect_with_spacy(text, page)
 
-        # Detección con regex (formatos estructurados)
-        regex_entities = detect_with_regex(text, page)
+        # Detección con patrones regex dinámicos (desde custom_types)
+        regex_entities = detect_with_custom_patterns(
+            text, page, self._custom_patterns
+        )
 
         # Heurística: detectar nombres en líneas en mayúsculas
         # (siempre se ejecuta como complemento, especialmente útil

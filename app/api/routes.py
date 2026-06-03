@@ -44,11 +44,27 @@ def _get_ner_engine():
     global _ner_engine
     if _ner_engine is None:
         from app.ner.engine import NEREngine
+        import json as _json
         base_dir = _get_base_dir()
         config_path = base_dir / "config" / "types_config.json"
         config_service = ConfigService(config_path=config_path)
         config = config_service.load()
-        _ner_engine = NEREngine(config=config)
+
+        # Leer custom_types y ollama_prompt desde el JSON
+        custom_types: list[dict] = []
+        ollama_prompt: str | None = None
+        try:
+            raw_config = _json.loads(config_path.read_text(encoding="utf-8"))
+            custom_types = raw_config.get("custom_types", [])
+            ollama_prompt = raw_config.get("ollama_prompt") or None
+        except Exception:
+            pass
+
+        _ner_engine = NEREngine(
+            config=config,
+            ollama_prompt=ollama_prompt,
+            custom_types=custom_types,
+        )
     return _ner_engine
 
 
@@ -406,6 +422,9 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         ner_engine.config = config
         # Actualizar prompt personalizado
         ner_engine._ollama_prompt = ollama_prompt
+        # Recargar patrones custom (por si el usuario agregó/editó reglas)
+        custom_types = raw_config.get("custom_types", [])
+        ner_engine.reload_custom_patterns(custom_types)
 
         # Respetar la preferencia de motor del usuario
         if configured_engine == "spacy":
