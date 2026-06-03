@@ -17,6 +17,7 @@ import re
 
 from app.models import DetectedEntity, SensitiveDataType, TypeConfig
 from app.ner.patterns import (
+    compile_all_patterns_from_config,
     compile_patterns_from_config,
     detect_with_custom_patterns,
     REGEX_CONFIDENCE,
@@ -71,9 +72,11 @@ class NEREngine:
         self._active_types = self._resolve_active_types()
         self._ollama_available = is_ollama_available()
         self._ollama_prompt = ollama_prompt
-        self._custom_patterns: list[tuple[re.Pattern[str], str]] = (
-            compile_patterns_from_config(custom_types or [])
-        )
+        # Compilar patrones: si recibimos raw_config (dict), usar compile_all
+        if isinstance(custom_types, dict) and "types" in custom_types:
+            self._custom_patterns = compile_all_patterns_from_config(custom_types)
+        else:
+            self._custom_patterns = compile_patterns_from_config(custom_types or [])
         self._spacy_nlp = None  # Lazy load solo si se necesita
 
         if self._ollama_available:
@@ -97,15 +100,19 @@ class NEREngine:
         self._active_types = self._resolve_active_types()
 
     def reload_custom_patterns(self, custom_types: list[dict]) -> None:
-        """Recarga los patrones regex desde custom_types.
+        """Recarga los patrones regex desde la configuración completa.
 
         Llamar cuando se actualiza la configuración para que
         los nuevos patrones se apliquen al siguiente procesamiento.
 
         Args:
-            custom_types: Lista de custom_types con patrones regex.
+            custom_types: Lista de custom_types O dict completo de raw_config.
         """
-        self._custom_patterns = compile_patterns_from_config(custom_types)
+        # Si recibimos la raw_config completa (tiene key "types")
+        if isinstance(custom_types, dict) and "types" in custom_types:
+            self._custom_patterns = compile_all_patterns_from_config(custom_types)
+        else:
+            self._custom_patterns = compile_patterns_from_config(custom_types)
 
     def detect(self, text: str, page: int) -> list[DetectedEntity]:
         """Detecta entidades sensibles en el texto dado.

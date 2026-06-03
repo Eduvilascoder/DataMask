@@ -10,7 +10,23 @@ from __future__ import annotations
 import pytest
 
 from app.models import DetectedEntity, SensitiveDataType
-from app.ner.patterns import detect_with_regex
+from app.ner.engine import NEREngine
+from app.models import TypeConfig
+import json
+
+
+def _make_engine() -> NEREngine:
+    """Helper: creates NEREngine with patterns from config file."""
+    with open("config/types_config.json") as f:
+        raw_config = json.load(f)
+    engine = NEREngine(config=TypeConfig(), custom_types=raw_config)
+    engine._ollama_available = False  # Solo regex para tests determinísticos
+    return engine
+
+
+def _detect_all(text: str) -> list[DetectedEntity]:
+    """Helper: detect using the full engine (regex only, sin Ollama)."""
+    return _make_engine().detect(text, page=0)
 
 
 class TestDNIContextDetection:
@@ -19,7 +35,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_keyword_dni(self) -> None:
         """Detecta DNI cuando está precedido por 'DNI'."""
         text = "DNI: 35123456"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -30,7 +46,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_dni_with_dots(self) -> None:
         """Detecta DNI cuando está precedido por 'D.N.I.'."""
         text = "D.N.I.: 35.123.456"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -41,7 +57,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_documento(self) -> None:
         """Detecta DNI cuando está precedido por 'Documento'."""
         text = "Documento 35123456"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -54,7 +70,7 @@ class TestDNIContextDetection:
     ) -> None:
         """Detecta DNI con 'Documento Nacional de Identidad'."""
         text = "Documento Nacional de Identidad: 35123456"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -65,7 +81,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_nro_doc(self) -> None:
         """Detecta DNI con 'Nro. Doc.'."""
         text = "Nro. Doc. 28456789"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -76,7 +92,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_socio(self) -> None:
         """Detecta DNI con contexto 'Socio:'."""
         text = "Socio: 35123456"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -87,7 +103,7 @@ class TestDNIContextDetection:
     def test_should_detect_dni_when_preceded_by_titular(self) -> None:
         """Detecta DNI con contexto 'Titular'."""
         text = "Titular 28456789"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -98,7 +114,7 @@ class TestDNIContextDetection:
     def test_should_detect_dotted_dni_without_context(self) -> None:
         """DNI con formato puntuado (XX.XXX.XXX) se detecta sin contexto."""
         text = "El número 35.123.456 corresponde al firmante"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -113,7 +129,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_reference_number_as_dni(self) -> None:
         """Números de referencia no deben ser DNI."""
         text = "Referencia 00342381"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -123,7 +139,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_transaction_code_as_dni(self) -> None:
         """Códigos de transacción no deben ser DNI."""
         text = "Código transacción: 82898741"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -133,7 +149,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_account_number_as_dni(self) -> None:
         """Números de cuenta parciales no deben ser DNI."""
         text = "Número de cuenta 000000342381"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         # No debería generar DNI para un número de 12 dígitos
         dni_entities = [
@@ -146,7 +162,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_monetary_amount_as_dni(self) -> None:
         """Montos monetarios no deben ser DNI."""
         text = "Total: $4.183.624"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -161,7 +177,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_perception_rg_as_dni(self) -> None:
         """Números de RG (Resolución General) no deben ser DNI."""
         text = "PERCEPCION RG 5617"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -171,7 +187,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_page_number_as_dni(self) -> None:
         """Números de página no deben ser DNI."""
         text = "Página 1 de 4"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -181,7 +197,7 @@ class TestDNINoFalsePositives:
     def test_should_not_detect_random_7digit_as_dni(self) -> None:
         """Números de 7 dígitos sin contexto no deben ser DNI."""
         text = "El código es 4183624 para esta operación"
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -197,7 +213,7 @@ class TestDNINoFalsePositives:
             "18 de Noviembre PERCEPCION RG 5617 347.589,09\n"
             "Referencia 000322\n"
         )
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -219,7 +235,7 @@ class TestDNIMixedContext:
             "DNI: 35123456\n"
             "Código 82898741\n"
         )
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -234,7 +250,7 @@ class TestDNIMixedContext:
             "Socio: 28456789\n"
             "Referencia: 99887766\n"  # No DNI
         )
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI
@@ -250,7 +266,7 @@ class TestDNIMixedContext:
             "DNI 28456789\n"
             "Firmante: 35.123.456\n"  # Puntuado sin keyword explícita
         )
-        entities = detect_with_regex(text, page=0)
+        entities = _detect_all(text)
 
         dni_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.DNI

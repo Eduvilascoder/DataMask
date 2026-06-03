@@ -50,12 +50,11 @@ def _get_ner_engine():
         config_service = ConfigService(config_path=config_path)
         config = config_service.load()
 
-        # Leer custom_types y ollama_prompt desde el JSON
-        custom_types: list[dict] = []
+        # Leer config completa para patrones y prompt
+        raw_config: dict = {}
         ollama_prompt: str | None = None
         try:
             raw_config = _json.loads(config_path.read_text(encoding="utf-8"))
-            custom_types = raw_config.get("custom_types", [])
             ollama_prompt = raw_config.get("ollama_prompt") or None
         except Exception:
             pass
@@ -63,7 +62,7 @@ def _get_ner_engine():
         _ner_engine = NEREngine(
             config=config,
             ollama_prompt=ollama_prompt,
-            custom_types=custom_types,
+            custom_types=raw_config,
         )
     return _ner_engine
 
@@ -405,11 +404,13 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
     # Leer preferencia de motor desde la config
     configured_engine = "ollama"
     ollama_prompt = None
+    custom_types: list[dict] = []
     try:
         import json as _json
         raw_config = _json.loads(config_path.read_text(encoding="utf-8"))
         configured_engine = raw_config.get("engine", "ollama")
         ollama_prompt = raw_config.get("ollama_prompt") or None
+        custom_types = raw_config.get("custom_types", [])
     except Exception:
         pass
 
@@ -422,9 +423,10 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         ner_engine.config = config
         # Actualizar prompt personalizado
         ner_engine._ollama_prompt = ollama_prompt
-        # Recargar patrones custom (por si el usuario agregó/editó reglas)
-        custom_types = raw_config.get("custom_types", [])
+        # Recargar patrones custom desde config
         ner_engine.reload_custom_patterns(custom_types)
+        # Recargar patrones custom (por si el usuario agregó/editó reglas)
+        ner_engine.reload_custom_patterns(raw_config)
 
         # Respetar la preferencia de motor del usuario
         if configured_engine == "spacy":

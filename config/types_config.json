@@ -1,119 +1,245 @@
 {
   "engine": "ollama",
-  "ollama_prompt": "Eres un extractor especializado de datos personales sensibles (PII). Tu tarea es analizar el texto proporcionado e identificar TODOS los campos que podrían identificar a una persona.\n\nDevuelve ÚNICAMENTE un JSON array. Sin texto previo, sin explicaciones, sin bloques de código markdown.\n\nCada elemento del array debe tener exactamente estas claves:\n- \"text\": el fragmento exacto tal como aparece en el texto original (sin modificar)\n- \"type\": uno de los tipos listados abajo\n\n════════════════════════════════\nTIPOS VÁLIDOS Y SUS CRITERIOS\n════════════════════════════════\n\nNOMBRE\n  - Nombres completos de personas físicas (nombre + apellido)\n  - Cualquier combinación de mayúsculas/minúsculas/versalitas\n  - Nombres con prefijos: \"Sr.\", \"Dra.\", \"Ing.\" → incluir solo el nombre, excluir el título\n  - NO incluir nombres de empresas ni organizaciones\n\nDIRECCION\n  - Calles con número: \"Av. Corrientes 1234\", \"GRANADEROS 457 5 G\"\n  - Calles con abreviaturas: \"FLORES AVELLANEDA ,AV. Y ARANGUREN DR JU\"\n  - Direcciones compactas de extractos bancarios o facturas (calle + número + piso + depto)\n  - Barrios, localidades, códigos postales asociados a una persona\n  - Ciudad + país cuando identifica ubicación de una persona: \"Buenos Aires, Argentina\"\n  - NO incluir sedes corporativas genéricas ni nombres de calles usados como nombre de comercio\n\nEMAIL\n  - Cualquier dirección de correo electrónico\n\nTELEFONO\n  - Números de teléfono, celular, fax en cualquier formato\n  - Líneas 0800, números con prefijo internacional\n\nDNI\n  - SOLO detectar como DNI si el número está EXPLÍCITAMENTE precedido por las palabras: \"DNI\", \"D.N.I.\", \"Documento\", \"Documento Nacional de Identidad\", \"Nro. Doc\", \"Socio:\", \"Titular:\"\n  - DNI argentino: 7-8 dígitos, opcionalmente con puntos (ej: \"35.123.456\")\n  - Si el número tiene puntos separadores (XX.XXX.XXX), SÍ es DNI aunque no tenga keyword previa\n  - NO detectar como DNI: números de referencia, códigos de transacción, números de comprobante, números de cuenta\n  - NO detectar como DNI ningún número que esté precedido por: \"Referencia\", \"Código\", \"Comprobante\", \"Cuenta\", \"RG\"\n\nCUIT_CUIL\n  - CUIT o CUIL en formato XX-XXXXXXXX-X (con o sin guiones)\n\nFECHA\n  - Fechas en formato DD/MM/AAAA, DD/MM/AA, DD-MM-AAAA\n  - Fechas textuales: \"22 de Junio 2025\", \"4 de agosto de 2025\"\n  - Fechas de vencimiento, facturación, nacimiento\n  - NO incluir años sueltos ni meses sin día\n\nCUENTA_BANCARIA\n  - CBU (22 dígitos), CVU, alias bancario\n  - Números de cuenta con guiones: \"3764-575886-12000\"\n  - IBAN, números de cuenta internacionales\n\nTARJETA_CREDITO\n  - Números de tarjeta de crédito/débito (16 dígitos agrupados)\n\nEXPEDIENTE\n  - Expedientes GEDO/TAD: \"EX-2025-12345678-APN-SCEYM#MEC\"\n  - Documentos GEDO (informes, notas, providencias): \"IF-2025-12345678-APN-XXX#YYY\", \"NO-2025-...\", \"PV-2025-...\"\n  - Expedientes judiciales: \"Expte. Nº 12345/2024\", \"Expediente N° 1234/24\"\n  - Expedientes administrativos provinciales: \"EXP-S01:0001234/2024\"\n  - Actuaciones, causas, legajos: \"Actuación Nº 12345-1234/2024\", \"Causa N° 5678/23\"\n\n════════════════════════════════\nREGLAS GENERALES\n════════════════════════════════\n\n1. Extrae el fragmento MÍNIMO que identifica el dato (no traigas contexto extra).\n2. Si el mismo dato aparece varias veces, inclúyelo UNA sola vez.\n3. No inferas ni completes información que no esté explícita en el texto.\n4. Si no hay ningún dato sensible, devuelve exactamente: []\n5. No incluyas: tecnologías, lenguajes, nombres de empresas, cargos, ni términos técnicos.\n6. Los montos monetarios ($1.234,56, USD 500.00) NO son datos sensibles.\n7. Los porcentajes, números de página, y códigos de referencia NO son datos sensibles.\n8. Los números de referencia de transacciones bancarias (\"Referencia 00342381\") NO son DNI.\n9. Los números que aparecen junto a códigos de comercio o montos NO son DNI.\n\n════════════════════════════════\nTEXTO A ANALIZAR\n════════════════════════════════\n\n---\n{text}\n---\n\nResponde SOLO con el JSON array:\n",
-  "version": 2,
+  "ollama_prompt": "Eres un extractor especializado de datos personales sensibles (PII). Tu tarea es analizar el texto proporcionado e identificar TODOS los campos que podrían identificar a una persona.\n\nDevuelve ÚNICAMENTE un JSON array. Sin texto previo, sin explicaciones, sin bloques de código markdown.\n\nCada elemento del array debe tener exactamente estas claves:\n- \"text\": el fragmento exacto tal como aparece en el texto original (sin modificar)\n- \"type\": uno de los tipos listados abajo\n\n════════════════════════════════\nTIPOS VÁLIDOS Y SUS CRITERIOS\n════════════════════════════════\n\nNOMBRE\n  - Nombres completos de personas físicas (nombre + apellido)\n  - Cualquier combinación de mayúsculas/minúsculas/versalitas\n  - Nombres con prefijos: \"Sr.\", \"Dra.\", \"Ing.\" → incluir solo el nombre, excluir el título\n  - NO incluir nombres de empresas ni organizaciones\n\nDIRECCION\n  - Calles con número: \"Av. Corrientes 1234\", \"GRANADEROS 457 5 G\"\n  - Calles con abreviaturas: \"FLORES AVELLANEDA ,AV. Y ARANGUREN DR JU\"\n  - Direcciones compactas de extractos bancarios o facturas (calle + número + piso + depto)\n  - Barrios, localidades, códigos postales asociados a una persona\n  - Ciudad + país cuando identifica ubicación de una persona: \"Buenos Aires, Argentina\"\n  - NO incluir sedes corporativas genéricas ni nombres de calles usados como nombre de comercio\n\nEMAIL\n  - Cualquier dirección de correo electrónico\n\nTELEFONO\n  - Números de teléfono, celular, fax en cualquier formato\n  - Líneas 0800, números con prefijo internacional\n\nDNI\n  - SOLO detectar como DNI si el número está EXPLÍCITAMENTE precedido por las palabras: \"DNI\", \"D.N.I.\", \"Documento\", \"Documento Nacional de Identidad\", \"Nro. Doc\", \"Socio:\", \"Titular:\"\n  - DNI argentino: 7-8 dígitos, opcionalmente con puntos (ej: \"35.123.456\")\n  - Si el número tiene puntos separadores (XX.XXX.XXX), SÍ es DNI aunque no tenga keyword previa\n  - NO detectar como DNI: números de referencia, códigos de transacción, números de comprobante, números de cuenta\n  - NO detectar como DNI ningún número que esté precedido por: \"Referencia\", \"Código\", \"Comprobante\", \"Cuenta\", \"RG\"\n\nCUIT_CUIL\n  - CUIT o CUIL en formato XX-XXXXXXXX-X (con o sin guiones)\n\nFECHA\n  - Fechas en formato DD/MM/AAAA, DD/MM/AA, DD-MM-AAAA\n  - Fechas textuales: \"22 de Junio 2025\", \"4 de agosto de 2025\"\n  - Fechas de vencimiento, facturación, nacimiento\n  - NO incluir años sueltos ni meses sin día\n\nCUENTA_BANCARIA\n  - CBU (22 dígitos), CVU, alias bancario\n  - Números de cuenta con guiones: \"3764-575886-12000\"\n  - IBAN, números de cuenta internacionales\n\nTARJETA_CREDITO\n  - Números de tarjeta de crédito/débito (16 dígitos agrupados)\n\nEXPEDIENTE\n  - Expedientes GEDO/TAD: \"EX-2025-12345678-APN-SCEYM#MEC\"\n  - Documentos GEDO (informes, notas, providencias): \"IF-2025-12345678-APN-XXX#YYY\", \"NO-2025-...\", \"PV-2025-...\"\n  - Expedientes judiciales: \"Expte. Nº 12345/2024\", \"Expediente N° 1234/24\"\n  - Expedientes administrativos provinciales: \"EXP-S01:0001234/2024\"\n  - Actuaciones, causas, legajos: \"Actuación Nº 12345-1234/2024\", \"Causa N° 5678/23\"\n\nNUMERO_DE_SERIE\n  - Códigos de serie con formato XXXX-XXX-XXX-NNN\n\nTOKEN_GITHUB\n  - Tokens de acceso personal de GitHub (ghp_, gho_, github_pat_)\n\n════════════════════════════════\nREGLAS GENERALES\n════════════════════════════════\n\n1. Extrae el fragmento MÍNIMO que identifica el dato (no traigas contexto extra).\n2. Si el mismo dato aparece varias veces, inclúyelo UNA sola vez.\n3. No inferas ni completes información que no esté explícita en el texto.\n4. Si no hay ningún dato sensible, devuelve exactamente: []\n5. No incluyas: tecnologías, lenguajes, nombres de empresas, cargos, ni términos técnicos.\n6. Los montos monetarios ($1.234,56, USD 500.00) NO son datos sensibles.\n7. Los porcentajes, números de página, y códigos de referencia NO son datos sensibles.\n8. Los números de referencia de transacciones bancarias (\"Referencia 00342381\") NO son DNI.\n9. Los números que aparecen junto a códigos de comercio o montos NO son DNI.\n\n════════════════════════════════\nTEXTO A ANALIZAR\n════════════════════════════════\n\n---\n{text}\n---\n\nResponde SOLO con el JSON array:\n",
+  "version": 3,
   "types": {
     "nombre": {
       "enabled": true,
       "label": "NOMBRE",
-      "description": "Detecta nombres y apellidos de personas",
-      "pattern": "(?:Sr\\.?|Sra\\.?|Srta\\.?|Dr\\.?|Dra\\.?|Lic\\.?|Ing\\.?|Escriban[oa]|Abog\\.?|Prof\\.?|Titular|heredero\\s+del\\s+Sr\\.?)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,4})",
-      "note": "Detecta nombres precedidos por títulos (Sr., Dra., Escribana, etc.). Ollama complementa con detección semántica."
+      "description": "Detecta nombres y apellidos de personas (Ollama/spaCy semántico)"
     },
     "email": {
       "enabled": true,
       "label": "EMAIL",
-      "description": "Detecta direcciones de correo electrónico",
-      "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      "description": "Detecta direcciones de correo electrónico (Ollama/spaCy semántico)"
     },
     "celular": {
       "enabled": true,
       "label": "CELULAR",
-      "description": "Detecta números de celular con prefijo +54 9",
-      "pattern": "\\+54\\s?9\\s?\\d[\\d\\s\\-]{8,14}\\d"
+      "description": "Detecta números de celular (Ollama/spaCy semántico)"
     },
     "telefono": {
       "enabled": true,
       "label": "TELEFONO",
-      "description": "Detecta números de teléfono con prefijo internacional",
-      "pattern": "\\+\\d{1,3}\\s?\\d[\\d\\s\\-]{7,14}\\d"
+      "description": "Detecta números de teléfono (Ollama/spaCy semántico)"
     },
     "direccion": {
       "enabled": true,
       "label": "DIRECCION",
-      "description": "Detecta direcciones postales (calle + número)",
-      "pattern": "(?:calle|Calle|CALLE|av\\.?|Av\\.?|AV\\.?|avenida|Avenida|domicilio|Domicilio|dirección|Dirección|sitos?\\s+en\\s+(?:la\\s+)?(?:calle)?)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|C\\.?A\\.?B\\.?A\\.?|Capital Federal))?)",
-      "note": "Detecta direcciones con keyword previa. Ollama complementa con detección semántica."
+      "description": "Detecta direcciones postales (Ollama/spaCy semántico)"
     },
     "tarjeta_credito": {
       "enabled": true,
       "label": "TARJETA_CREDITO",
-      "description": "Detecta números de tarjeta de crédito (15-16 dígitos, Visa/MC/Amex)",
-      "pattern": "\\b\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}\\b|\\b3[47]\\d{2}[\\s\\-]?\\d{6}[\\s\\-]?\\d{5}\\b"
+      "description": "Detecta números de tarjeta de crédito (Ollama/spaCy semántico)"
     },
     "cuenta_bancaria": {
       "enabled": true,
       "label": "CUENTA_BANCARIA",
-      "description": "Detecta CBU (22 dígitos) y cuentas con guiones",
-      "pattern": "\\b\\d{22}\\b|\\b\\d{4}\\-\\d{5,6}\\-\\d{4,5}\\b"
+      "description": "Detecta CBU y cuentas bancarias (Ollama/spaCy semántico)"
     },
     "dni": {
       "enabled": true,
       "label": "DNI",
-      "description": "Detecta DNI argentino (7-8 dígitos) con contexto o formato puntuado",
-      "pattern": "(?:DNI|D\\.N\\.I\\.?|Documento|Doc\\.?|Documento\\s+Nacional\\s+de\\s+Identidad|Nro\\.?\\s*(?:de\\s+)?(?:Doc(?:umento)?|DNI)|Identidad|Socio|Titular|Nro\\.?\\s*Socio)[:\\s\\-\\.Nº°#]{0,15}(\\d{2}\\.?\\d{3}\\.?\\d{2,3})\\b|\\b(\\d{1,2}\\.\\d{3}\\.\\d{3})\\b",
-      "note": "Solo detecta con keyword previa o formato XX.XXX.XXX. Evita falsos positivos."
+      "description": "Detecta números de DNI argentino (Ollama/spaCy semántico)"
     },
     "cuit_cuil": {
       "enabled": true,
       "label": "CUIT_CUIL",
-      "description": "Detecta números de CUIT/CUIL (XX-XXXXXXXX-X)",
-      "pattern": "\\b(20|23|24|27|30|33|34)\\-?\\d{8}\\-?\\d\\b"
+      "description": "Detecta números de CUIT/CUIL (Ollama/spaCy semántico)"
     },
     "pasaporte": {
       "enabled": true,
       "label": "PASAPORTE",
-      "description": "Detecta números de pasaporte argentino (AAX######)",
-      "pattern": "\\bAA[A-Z]?\\d{6}\\b"
+      "description": "Detecta números de pasaporte argentino (Ollama/spaCy semántico)"
     },
     "fecha": {
       "enabled": true,
       "label": "FECHA",
-      "description": "Detecta fechas DD/MM/AAAA, DD/MM/AA y textuales en español",
-      "pattern": "\\b\\d{1,2}[/\\-]\\d{1,2}[/\\-]\\d{2,4}\\b|\\b\\d{1,2}\\s+de\\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\\s+(?:de\\s+)?\\d{4}\\b"
+      "description": "Detecta fechas en múltiples formatos (Ollama/spaCy semántico)"
     }
   },
   "custom_types": [
     {
-      "id": "telefono_chile",
+      "id": "cuit_cuil_regex",
       "enabled": true,
-      "label": "TELEFONO CHILE",
-      "description": "Detecta números de teléfono fijo con prefijo +56"
+      "label": "CUIT_CUIL",
+      "description": "CUIT/CUIL: prefijo (20|23|24|27|30|33|34) + 8 dígitos + verificador",
+      "pattern": "\\b(?:20|23|24|27|30|33|34)\\-?\\d{8}\\-?\\d\\b"
     },
     {
-      "id": "expediente",
+      "id": "telefono_internacional_regex",
+      "enabled": true,
+      "label": "TELEFONO",
+      "description": "Teléfono internacional con prefijo + código de país",
+      "pattern": "\\+\\d{1,3}\\s?\\d[\\d\\s\\-]{7,14}\\d"
+    },
+    {
+      "id": "celular_argentina_regex",
+      "enabled": true,
+      "label": "CELULAR",
+      "description": "Celular argentino +54 9",
+      "pattern": "\\+54\\s?9\\s?\\d[\\d\\s\\-]{8,14}\\d"
+    },
+    {
+      "id": "email_regex",
+      "enabled": true,
+      "label": "EMAIL",
+      "description": "Correo electrónico formato estándar",
+      "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+    },
+    {
+      "id": "tarjeta_credito_16_regex",
+      "enabled": true,
+      "label": "TARJETA_CREDITO",
+      "description": "Tarjeta de crédito 16 dígitos agrupados (Visa, Mastercard, Discover, JCB)",
+      "pattern": "\\b\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}\\b"
+    },
+    {
+      "id": "tarjeta_credito_amex_regex",
+      "enabled": true,
+      "label": "TARJETA_CREDITO",
+      "description": "Tarjeta American Express 15 dígitos (prefijo 34xx o 37xx)",
+      "pattern": "\\b3[47]\\d{2}[\\s\\-]?\\d{6}[\\s\\-]?\\d{5}\\b"
+    },
+    {
+      "id": "tarjeta_credito_avanzada_regex",
+      "enabled": true,
+      "label": "TARJETA_CREDITO",
+      "description": "Tarjeta de crédito avanzada (Visa, MC serie 2, Amex, Discover, Diners, JCB)",
+      "pattern": "\\b(?:4[0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{1,4}|5[1-5][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|2[2-7][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|3[47][0-9]{2}[- ]?[0-9]{6}[- ]?[0-9]{5}|3(?:0[0-5]|[68][0-9])[0-9]{1}[- ]?[0-9]{6}[- ]?[0-9]{4}|6(?:011|5[0-9]{2})[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|(?:2131|1800|35[0-9]{2})[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4})\\b"
+    },
+    {
+      "id": "pasaporte_regex",
+      "enabled": true,
+      "label": "PASAPORTE",
+      "description": "Pasaporte argentino: AA + letra opcional + 6 dígitos",
+      "pattern": "\\bAA[A-Z]?\\d{6}\\b"
+    },
+    {
+      "id": "cuenta_bancaria_cbu_regex",
+      "enabled": true,
+      "label": "CUENTA_BANCARIA",
+      "description": "CBU: exactamente 22 dígitos consecutivos",
+      "pattern": "\\b\\d{22}\\b"
+    },
+    {
+      "id": "cuenta_bancaria_guiones_regex",
+      "enabled": true,
+      "label": "CUENTA_BANCARIA",
+      "description": "Cuenta bancaria con guiones: XXXX-XXXXXX-XXXXX",
+      "pattern": "\\b\\d{4}\\-\\d{5,6}\\-\\d{4,5}\\b"
+    },
+    {
+      "id": "fecha_numerica_regex",
+      "enabled": true,
+      "label": "FECHA",
+      "description": "Fecha DD/MM/AAAA o DD/MM/AA (con / o -)",
+      "pattern": "\\b\\d{1,2}[/\\-]\\d{1,2}[/\\-]\\d{2,4}\\b"
+    },
+    {
+      "id": "fecha_textual_regex",
+      "enabled": true,
+      "label": "FECHA",
+      "description": "Fecha textual en español: '22 de Junio 2025'",
+      "pattern": "\\b\\d{1,2}\\s+de\\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\\s+(?:de\\s+)?\\d{4}\\b",
+      "case_insensitive": true
+    },
+    {
+      "id": "dni_con_contexto_regex",
+      "enabled": true,
+      "label": "DNI",
+      "description": "DNI con keyword previa (DNI, Documento, Socio, Titular, etc.)",
+      "pattern": "(?:DNI|D\\.N\\.I\\.?|Documento|Doc\\.?|Identidad|Socio|Titular|Nro\\.?\\s*Socio)[:\\s\\-\\.Nº°#]{0,15}(\\d{2}\\.?\\d{3}\\.?\\d{2,3})\\b",
+      "case_insensitive": true
+    },
+    {
+      "id": "dni_puntuado_regex",
+      "enabled": true,
+      "label": "DNI",
+      "description": "DNI con puntos explícitos (XX.XXX.XXX) — siempre es DNI",
+      "pattern": "\\b\\d{1,2}\\.\\d{3}\\.\\d{3}\\b"
+    },
+    {
+      "id": "direccion_con_keyword_regex",
+      "enabled": true,
+      "label": "DIRECCION",
+      "description": "Dirección con keyword (calle, Av., domicilio, dirección) + nombre + número",
+      "pattern": "(?:calle|Calle|CALLE|[Aa]v\\.?|AV\\.?|[Aa]venida|[Dd]omicilio|[Dd]irección|sitos?\\s+en)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|C\\.?A\\.?B\\.?A\\.?|Capital Federal))?)",
+      "case_insensitive": true
+    },
+    {
+      "id": "nombre_con_titulo_regex",
+      "enabled": true,
+      "label": "NOMBRE",
+      "description": "Nombre precedido por título (Sr., Dra., Lic., Ing., Escribana, etc.)",
+      "pattern": "(?:Sr\\.?|Sra\\.?|Srta\\.?|Dr\\.?|Dra\\.?|Lic\\.?|Ing\\.?|Escriban[oa]|Abog\\.?|Prof\\.?|Titular|heredero\\s+del\\s+Sr\\.?)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,4})"
+    },
+    {
+      "id": "expediente_gedo_regex",
       "enabled": true,
       "label": "EXPEDIENTE",
-      "description": "Detecta expedientes GEDO/TAD, judiciales, administrativos y actuaciones"
+      "description": "Expediente GEDO/TAD: EX-2025-12345678-APN-SCEYM#MEC",
+      "pattern": "\\bEX-\\d{4}-\\d{6,10}-[A-Z]{2,4}-[A-Z0-9#]+\\b"
     },
     {
-      "id": "tarjeta_de_credito",
+      "id": "expediente_judicial_regex",
       "enabled": true,
-      "label": "TARJETA DE CREDITO",
-      "description": "Detecta números de tarjeta de crédito (16 dígitos) con Regex",
-      "pattern": "\\b(?:4[0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{1,4}|5[1-5][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|2[2-7][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|3[47][0-9]{2}[- ]?[0-9]{6}[- ]?[0-9]{5}|3(?:0[0-5]|[68][0-9])[0-9]{1}[- ]?[0-9]{6}[- ]?[0-9]{4}|6(?:011|5[0-9]{2})[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}|(?:2131|1800|35[0-9]{2})[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4})\\b"
+      "label": "EXPEDIENTE",
+      "description": "Expediente judicial: Expte. Nº 12345/2024",
+      "pattern": "\\b(?:Expte\\.?|Expediente|Exp\\.?)\\s*(?:N[°ºo]\\.?|Nro\\.?|Número)?\\s*(\\d{1,8}[/\\-]\\d{2,4})\\b",
+      "case_insensitive": true
+    },
+    {
+      "id": "expediente_administrativo_regex",
+      "enabled": true,
+      "label": "EXPEDIENTE",
+      "description": "Expediente administrativo provincial: EXP-S01:0001234/2024",
+      "pattern": "\\bEXP-[A-Z]\\d{2}:\\d{4,8}/\\d{2,4}\\b"
+    },
+    {
+      "id": "expediente_gedo_docs_regex",
+      "enabled": true,
+      "label": "EXPEDIENTE",
+      "description": "Documentos GEDO (IF, NO, PV, DI, RS, RE, ME, AC, TRI, DOCFI)",
+      "pattern": "\\b(?:IF|NO|PV|DI|RS|RE|ME|AC|TRI|DOCFI)-\\d{4}-\\d{6,10}-[A-Z]{2,4}-[A-Z0-9#]+\\b"
+    },
+    {
+      "id": "expediente_actuacion_regex",
+      "enabled": true,
+      "label": "EXPEDIENTE",
+      "description": "Actuaciones, causas, legajos, sumarios",
+      "pattern": "\\b(?:Actuación|Causa|Legajo|Sumario)\\s*(?:N[°ºo]\\.?|Nro\\.?)?\\s*(\\d{1,8}(?:-\\d{1,6})?/\\d{2,4})\\b",
+      "case_insensitive": true
+    },
+    {
+      "id": "telefono_chile",
+      "enabled": true,
+      "label": "TELEFONO_CHILE",
+      "description": "Teléfono fijo/celular con prefijo +56 (Chile)",
+      "pattern": "\\+56\\s?\\d[\\d\\s\\-]{7,12}\\d"
     },
     {
       "id": "numero_de_serie",
       "enabled": true,
-      "label": "NUMERO DE SERIE",
-      "description": "Detecta numeros de serie que empiezan con VIRT",
+      "label": "NUMERO_DE_SERIE",
+      "description": "Números de serie formato XXXX-XXX-XXX-NNN",
       "pattern": "[A-Z]{2,}-[A-Z]{2,}-[A-Z]{2,}-\\d{3}"
     },
     {
       "id": "token_github",
       "enabled": true,
-      "label": "TOKEN GITHUB",
-      "description": "Detecta tokens de Github",
-      "pattern": "\\b(ghp_[A-Za-z0-9]{32}|gho_[A-Za-z0-9]{32}|ghu_[A-Za-z0-9]{32}|ghs_[A-Za-z0-9]{32}|ghr_[A-Za-z0-9]{76}|github_pat_[A-Za-z0-9_]{59,})\\b"
+      "label": "TOKEN_GITHUB",
+      "description": "Tokens de acceso personal de GitHub (ghp_, gho_, github_pat_)",
+      "pattern": "\\b(?:ghp_[A-Za-z0-9]{32,}|gho_[A-Za-z0-9]{32,}|ghu_[A-Za-z0-9]{32,}|ghs_[A-Za-z0-9]{32,}|ghr_[A-Za-z0-9]{76,}|github_pat_[A-Za-z0-9_]{59,})\\b"
     },
     {
       "id": "codigo_de_tramite",
       "enabled": true,
-      "label": "CODIGO DE TRAMITE",
-      "description": "Detectecta Codigo de Tramite",
+      "label": "CODIGO_DE_TRAMITE",
+      "description": "Código de trámite IOPE + 5 dígitos",
       "pattern": "\\bIOPE[0-9]{5}\\b"
     }
   ],
-  "updated_at": "2026-06-03T13:44:38.272069+00:00"
+  "updated_at": "2026-06-03T14:00:00.000000+00:00"
 }

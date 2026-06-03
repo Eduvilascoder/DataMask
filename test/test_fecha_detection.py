@@ -12,8 +12,20 @@ from __future__ import annotations
 import pytest
 
 from app.models import DetectedEntity, SensitiveDataType, TypeConfig
-from app.ner.patterns import detect_with_regex
 from app.ner.engine import NEREngine
+import json
+
+
+def _make_engine(config: TypeConfig | None = None) -> NEREngine:
+    """Helper: creates NEREngine with patterns from config file."""
+    with open("config/types_config.json") as f:
+        raw_config = json.load(f)
+    engine = NEREngine(
+        config=config or TypeConfig(),
+        custom_types=raw_config,
+    )
+    engine._ollama_available = False  # Solo regex para tests determinísticos
+    return engine
 
 
 class TestRegexFechaDetection:
@@ -22,7 +34,7 @@ class TestRegexFechaDetection:
     def test_should_detect_fecha_dd_mm_aa_when_slash_separator(self) -> None:
         """Fechas en formato DD/MM/AA deben ser detectadas como FECHA."""
         text = "Facturación 18/11/25 Vencimiento 27/11/25"
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -35,7 +47,7 @@ class TestRegexFechaDetection:
     def test_should_detect_fecha_dd_mm_aaaa_when_slash_separator(self) -> None:
         """Fechas en formato DD/MM/AAAA deben ser detectadas como FECHA."""
         text = "Fecha de nacimiento: 15/03/1990"
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -46,7 +58,7 @@ class TestRegexFechaDetection:
     def test_should_detect_fecha_dd_mm_aa_when_dash_separator(self) -> None:
         """Fechas con guiones (DD-MM-AA) deben ser detectadas como FECHA."""
         text = "Vence el 30-12-25"
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -57,7 +69,7 @@ class TestRegexFechaDetection:
     def test_should_detect_fecha_single_digit_day_month(self) -> None:
         """Fechas con día/mes de un dígito deben ser detectadas."""
         text = "Alta: 5/3/25"
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -68,7 +80,7 @@ class TestRegexFechaDetection:
     def test_should_detect_fecha_textual_spanish(self) -> None:
         """Fechas textuales en español deben ser detectadas."""
         text = "Fecha de firma: 22 de junio 2025"
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -84,7 +96,7 @@ class TestRegexFechaDetection:
             "Próximo Vencimiento: 30/12/25\n"
             "Facturación anterior: 21/10/25\n"
         )
-        entities = detect_with_regex(text, page=0)
+        entities = _make_engine().detect(text, page=0)
 
         fecha_entities = [
             e for e in entities if e.entity_type == SensitiveDataType.FECHA
@@ -219,7 +231,7 @@ class TestNEREngineFechaIntegration:
     def test_should_detect_fechas_in_extracto_bancario(self) -> None:
         """El motor completo debe detectar fechas de un extracto bancario."""
         config = TypeConfig(fecha=True, dni=True)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
 
         text = (
             "Estado de Cuenta\n"
@@ -248,7 +260,7 @@ class TestNEREngineFechaIntegration:
     def test_should_not_detect_fechas_when_type_disabled(self) -> None:
         """No debe detectar fechas cuando el tipo está deshabilitado."""
         config = TypeConfig(fecha=False)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
 
         text = "Fecha: 18/11/25"
         entities = engine.detect(text, page=0)
@@ -262,7 +274,7 @@ class TestNEREngineFechaIntegration:
     def test_should_detect_fecha_alongside_other_entities(self) -> None:
         """Fechas deben coexistir con otros tipos de entidades detectadas."""
         config = TypeConfig(fecha=True, cuit_cuil=True, dni=True)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
 
         text = "CUIT: 20-35123456-9 Fecha: 18/11/25"
         entities = engine.detect(text, page=0)

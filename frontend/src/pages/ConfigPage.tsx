@@ -19,6 +19,8 @@ interface TypeEntry {
   enabled: boolean;
   label: string;
   description: string;
+  pattern?: string;
+  note?: string;
 }
 
 interface CustomType {
@@ -358,6 +360,20 @@ const ConfigPage: React.FC = () => {
                   onChange={({ detail }) => handleDescriptionChange(key, detail.value)}
                   placeholder="Descripción del tipo de dato..."
                 />
+                <FormField
+                  label=""
+                  description="Patrón regex (editable)"
+                >
+                  <Input
+                    value={typeEntry.pattern || ''}
+                    onChange={({ detail }) => {
+                      if (!config) return;
+                      const newTypes = { ...config.types, [key]: { ...config.types[key], pattern: detail.value } };
+                      setConfig({ ...config, types: newTypes });
+                    }}
+                    placeholder="Expresión regular para este tipo..."
+                  />
+                </FormField>
               </SpaceBetween>
             </Box>
           ))}

@@ -16,6 +16,19 @@ import pytest
 from app.models import DetectedEntity, SensitiveDataType, TypeConfig
 from app.ner.engine import NEREngine
 from app.pdf.processor import PDFProcessor
+import json
+
+
+def _make_engine(config: TypeConfig | None = None) -> NEREngine:
+    """Helper: creates NEREngine with patterns from config file."""
+    with open("config/types_config.json") as f:
+        raw_config = json.load(f)
+    engine = NEREngine(
+        config=config or TypeConfig(),
+        custom_types=raw_config,
+    )
+    engine._ollama_available = False  # Solo regex para tests determinísticos
+    return engine
 
 
 def _create_test_pdf_with_dates(path: str) -> None:
@@ -48,7 +61,7 @@ class TestPDFDateRedaction:
         _create_test_pdf_with_dates(pdf_path)
 
         config = TypeConfig(fecha=True, dni=True, cuit_cuil=True)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(output_dir=output_dir, ner_engine=engine)
 
         result = processor.process_file(pdf_path)
@@ -66,7 +79,7 @@ class TestPDFDateRedaction:
         _create_test_pdf_with_dates(pdf_path)
 
         config = TypeConfig(fecha=True, dni=True)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(output_dir=output_dir, ner_engine=engine)
 
         result = processor.process_file(pdf_path)
@@ -89,7 +102,7 @@ class TestPDFDateRedaction:
         _create_test_pdf_with_dates(pdf_path)
 
         config = TypeConfig(fecha=True, dni=True, cuit_cuil=True)
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(output_dir=output_dir, ner_engine=engine)
 
         result = processor.process_file(pdf_path)
@@ -118,7 +131,7 @@ class TestSearchDateFragments:
     ) -> None:
         """No debe buscar fragmentos si la entidad no es FECHA."""
         config = TypeConfig()
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(
             output_dir=str(tmp_path), ner_engine=engine
         )
@@ -153,7 +166,7 @@ class TestSearchDateFragments:
     ) -> None:
         """Debe encontrar la fecha cuando existe como texto unido en la página."""
         config = TypeConfig()
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(
             output_dir=str(tmp_path), ner_engine=engine
         )
@@ -187,7 +200,7 @@ class TestSearchDateFragments:
     ) -> None:
         """No debe buscar si el texto no tiene formato de fecha."""
         config = TypeConfig()
-        engine = NEREngine(config=config)
+        engine = _make_engine(config)
         processor = PDFProcessor(
             output_dir=str(tmp_path), ner_engine=engine
         )
