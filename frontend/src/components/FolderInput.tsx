@@ -79,16 +79,14 @@ const FolderInput: React.FC<FolderInputProps> = ({ onValidate, isLoading, errorT
         <FormField
           label={es.processing.folderInput.label}
           errorText={errorText}
-          description="Explore y seleccione una carpeta, o ingrese la ruta manualmente y presione Enter"
+          description="Explore y seleccione una carpeta con el botón, o ingrese la ruta manualmente y presione Enter"
           stretch
         >
           <Input
             value={path}
             onChange={({ detail }) => setPath(detail.value)}
             onKeyDown={handleKeyDown}
-            placeholder={es.processing.folderInput.placeholder}
-            disabled={true}
-            readOnly
+            placeholder="La ruta aparecerá aquí al seleccionar una carpeta..."
             type="text"
           />
         </FormField>
