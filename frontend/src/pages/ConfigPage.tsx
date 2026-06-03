@@ -402,11 +402,18 @@ const ConfigPage: React.FC = () => {
                       onChange={({ detail }) => handleCustomDescChange(index, detail.value)}
                       placeholder="Descripción..."
                     />
-                    {ct.pattern && (
-                      <Box color="text-body-secondary" fontSize="body-s">
-                        Patrón regex: {ct.pattern}
-                      </Box>
-                    )}
+                    <FormField label="" description="Patrón regex (editable)">
+                      <Input
+                        value={ct.pattern || ''}
+                        onChange={({ detail }) => {
+                          if (!config) return;
+                          const newCustom = [...config.custom_types];
+                          newCustom[index] = { ...newCustom[index], pattern: detail.value };
+                          setConfig({ ...config, custom_types: newCustom });
+                        }}
+                        placeholder="Expresión regular para este tipo..."
+                      />
+                    </FormField>
                   </SpaceBetween>
                 </Box>
               ))}
