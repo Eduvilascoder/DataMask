@@ -32,12 +32,13 @@ interface CustomType {
 }
 
 interface FullConfig {
-  version: number;
+  version: number | string;
   types: Record<string, TypeEntry>;
   custom_types: CustomType[];
   updated_at: string | null;
   engine?: string;
   ollama_prompt?: string;
+  ignored_ollama_types?: string[];
 }
 
 interface EngineStatus {
@@ -75,6 +76,7 @@ const ConfigPage: React.FC = () => {
   const [newTypeDesc, setNewTypeDesc] = useState('');
   const [newTypePattern, setNewTypePattern] = useState('');
   const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
+  const [newIgnoredType, setNewIgnoredType] = useState('');
   const [flashMessages, setFlashMessages] = useState<Array<{
     type: 'success' | 'error';
     content: string;
@@ -322,6 +324,59 @@ const ConfigPage: React.FC = () => {
           >
             Restaurar prompt por defecto
           </Button>
+        </SpaceBetween>
+      </Container>
+
+      <Container
+        header={
+          <Header variant="h2">
+            Tipos ignorados de Ollama
+          </Header>
+        }
+      >
+        <SpaceBetween size="s">
+          <Box variant="p">
+            Ollama a veces detecta tipos que no son datos sensibles (ej: MONTO_MONETARIO, EMPRESA).
+            Agregue aquí los tipos que desea descartar automáticamente de las detecciones.
+          </Box>
+          {config?.ignored_ollama_types && config.ignored_ollama_types.length > 0 && (
+            <SpaceBetween size="xs">
+              {config.ignored_ollama_types.map((typeName, idx) => (
+                <SpaceBetween key={idx} size="xs" direction="horizontal">
+                  <Box variant="code">{typeName}</Box>
+                  <Button
+                    variant="icon"
+                    iconName="remove"
+                    onClick={() => {
+                      if (!config) return;
+                      const updated = config.ignored_ollama_types!.filter((_, i) => i !== idx);
+                      setConfig({ ...config, ignored_ollama_types: updated });
+                    }}
+                  />
+                </SpaceBetween>
+              ))}
+            </SpaceBetween>
+          )}
+          <SpaceBetween size="xs" direction="horizontal">
+            <Input
+              value={newIgnoredType}
+              onChange={({ detail }) => setNewIgnoredType(detail.value.toUpperCase())}
+              placeholder="Ej: MONTO_MONETARIO"
+            />
+            <Button
+              onClick={() => {
+                if (!config || !newIgnoredType.trim()) return;
+                const current = config.ignored_ollama_types || [];
+                if (!current.includes(newIgnoredType.trim())) {
+                  setConfig({ ...config, ignored_ollama_types: [...current, newIgnoredType.trim()] });
+                }
+                setNewIgnoredType('');
+              }}
+              disabled={!newIgnoredType.trim()}
+            >
+              Agregar
+            </Button>
+          </SpaceBetween>
         </SpaceBetween>
       </Container>
 

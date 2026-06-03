@@ -20,6 +20,16 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.1:8b"
 OLLAMA_TIMEOUT = 60.0  # segundos
 
+
+def _normalize_type(type_str: str) -> str:
+    """Normaliza un nombre de tipo removiendo acentos y pasando a upper.
+
+    Permite que ORGANIZACIÓN == ORGANIZACION, MONTO_MONEY == MONTO_MONEY, etc.
+    """
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", type_str)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).upper()
+
 # Prompt para detección de PII
 NER_PROMPT = """Analiza el siguiente texto y extrae TODOS los datos personales sensibles.
 
@@ -102,7 +112,8 @@ def get_ollama_status() -> dict:
 
 
 def detect_with_ollama(
-    text: str, page: int, prompt_template: str | None = None
+    text: str, page: int, prompt_template: str | None = None,
+    ignored_types: set[str] | None = None,
 ) -> list[DetectedEntity]:
     """Detecta nombres y direcciones usando Ollama (Llama 3.1 8B).
 
@@ -114,6 +125,7 @@ def detect_with_ollama(
         page: Número de página.
         prompt_template: Prompt personalizado con placeholder {text}.
             Si no se proporciona, usa NER_PROMPT por defecto.
+        ignored_types: Conjunto de tipos a ignorar de la respuesta de Ollama.
 
     Returns:
         Lista de entidades detectadas. Lista vacía si Ollama
@@ -165,7 +177,7 @@ def detect_with_ollama(
         data = response.json()
         raw_response = data.get("response", "").strip()
 
-        return _parse_ollama_response(raw_response, text, page)
+        return _parse_ollama_response(raw_response, text, page, ignored_types)
 
     except httpx.ConnectError:
         logger.warning("No se pudo conectar a Ollama en %s", OLLAMA_BASE_URL)
@@ -179,7 +191,8 @@ def detect_with_ollama(
 
 
 def _parse_ollama_response(
-    raw_response: str, original_text: str, page: int
+    raw_response: str, original_text: str, page: int,
+    ignored_types: set[str] | None = None,
 ) -> list[DetectedEntity]:
     """Parsea la respuesta JSON de Ollama y mapea posiciones al texto original.
 
@@ -187,6 +200,7 @@ def _parse_ollama_response(
         raw_response: Respuesta cruda del modelo (debería ser JSON array).
         original_text: Texto original para buscar posiciones.
         page: Número de página.
+        ignored_types: Conjunto de tipos a descartar (falsos positivos comunes).
 
     Returns:
         Lista de DetectedEntity con posiciones mapeadas al texto original.
@@ -241,6 +255,12 @@ def _parse_ollama_response(
         }
 
         if not entity_type_str:
+            continue
+
+        # Descartar tipos que Ollama inventa y no son datos sensibles.
+        # La lista se carga desde ignored_ollama_types en la config.
+        # Normalizar sin acentos para comparar (ORGANIZACIÓN == ORGANIZACION)
+        if ignored_types and _normalize_type(entity_type_str) in ignored_types:
             continue
 
         # Usar el mapeo si existe, sino usar el tipo tal cual

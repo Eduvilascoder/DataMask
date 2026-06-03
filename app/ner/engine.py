@@ -22,7 +22,7 @@ from app.ner.patterns import (
     detect_with_custom_patterns,
     REGEX_CONFIDENCE,
 )
-from app.ner.ollama_client import detect_with_ollama, is_ollama_available
+from app.ner.ollama_client import detect_with_ollama, is_ollama_available, _normalize_type
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class NEREngine:
         model_name: str = "es_core_news_lg",
         ollama_prompt: str | None = None,
         custom_types: list[dict] | None = None,
+        ignored_ollama_types: list[str] | None = None,
     ) -> None:
         """Inicializa el motor NER.
 
@@ -67,11 +68,15 @@ class NEREngine:
             model_name: Nombre del modelo spaCy (fallback).
             ollama_prompt: Prompt personalizado para Ollama.
             custom_types: Lista de custom_types con patrones regex.
+            ignored_ollama_types: Tipos que Ollama devuelve pero se descartan.
         """
         self._config = config or TypeConfig()
         self._active_types = self._resolve_active_types()
         self._ollama_available = is_ollama_available()
         self._ollama_prompt = ollama_prompt
+        self._ignored_ollama_types: set[str] = set(
+            _normalize_type(t) for t in (ignored_ollama_types or [])
+        )
         # Compilar patrones: si recibimos raw_config (dict), usar compile_all
         if isinstance(custom_types, dict) and "types" in custom_types:
             self._custom_patterns = compile_all_patterns_from_config(custom_types)
@@ -130,7 +135,9 @@ class NEREngine:
         # Detección con Ollama (nombres y direcciones) o spaCy fallback
         if self._ollama_available:
             semantic_entities = detect_with_ollama(
-                text, page, prompt_template=self._ollama_prompt
+                text, page,
+                prompt_template=self._ollama_prompt,
+                ignored_types=self._ignored_ollama_types,
             )
         else:
             semantic_entities = self._detect_with_spacy(text, page)

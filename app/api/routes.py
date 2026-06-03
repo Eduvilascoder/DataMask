@@ -63,6 +63,7 @@ def _get_ner_engine():
             config=config,
             ollama_prompt=ollama_prompt,
             custom_types=raw_config,
+            ignored_ollama_types=raw_config.get("ignored_ollama_types", []),
         )
     return _ner_engine
 
@@ -423,6 +424,11 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
         ner_engine.config = config
         # Actualizar prompt personalizado
         ner_engine._ollama_prompt = ollama_prompt
+        # Actualizar lista de tipos ignorados de Ollama
+        from app.ner.ollama_client import _normalize_type
+        ner_engine._ignored_ollama_types = set(
+            _normalize_type(t) for t in raw_config.get("ignored_ollama_types", [])
+        )
         # Recargar patrones custom desde config
         ner_engine.reload_custom_patterns(custom_types)
         # Recargar patrones custom (por si el usuario agregó/editó reglas)

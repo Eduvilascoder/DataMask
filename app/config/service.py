@@ -124,7 +124,8 @@ class ConfigService:
         """Parsea el diccionario JSON a TypeConfig.
 
         Maneja tanto el formato con wrapper 'types' como
-        un diccionario plano de campos.
+        un diccionario plano de campos. Soporta v2+ donde
+        cada tipo es un objeto {enabled, label, ...}.
 
         Args:
             data: Diccionario cargado del JSON.
@@ -140,7 +141,18 @@ class ConfigService:
                     "Usando configuración por defecto."
                 )
                 return TypeConfig()
-            return TypeConfig(**types_data)
+
+            # v2+: cada tipo es un objeto con campo "enabled"
+            # v1: cada tipo es un booleano directamente
+            parsed: dict[str, bool] = {}
+            for key, val in types_data.items():
+                if isinstance(val, dict):
+                    parsed[key] = val.get("enabled", True)
+                elif isinstance(val, bool):
+                    parsed[key] = val
+                # Ignorar valores desconocidos
+
+            return TypeConfig(**parsed)
         except (TypeError, ValueError) as exc:
             logger.warning(
                 "Error al parsear configuración de tipos: %s. "
