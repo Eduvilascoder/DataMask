@@ -261,13 +261,23 @@ class NEREngine:
     ) -> list[DetectedEntity]:
         """Filtra entidades manteniendo solo las de tipos activos.
 
+        Los tipos del enum SensitiveDataType se filtran según la config.
+        Los tipos custom (strings no en el enum) siempre pasan.
+
         Args:
             entities: Lista de entidades a filtrar.
 
         Returns:
             Lista filtrada con solo tipos activos.
         """
-        return [e for e in entities if e.entity_type in self._active_types]
+        # Tipos que están en el enum y no están activos
+        _enum_values = {e.value for e in SensitiveDataType}
+
+        return [
+            e for e in entities
+            if e.entity_type in self._active_types
+            or e.entity_type not in _enum_values
+        ]
 
     def _filter_by_confidence(
         self, entities: list[DetectedEntity]
