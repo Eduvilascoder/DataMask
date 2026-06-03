@@ -2,8 +2,8 @@
 
 **Enmascarar datos sensibles en documentos**
 
-![Version](https://img.shields.io/badge/version-1.0-blue)
-![Python](https://img.shields.io/badge/python-≥3.9-green)
+![Version](https://img.shields.io/badge/version-3.2-blue)
+![Python](https://img.shields.io/badge/python-≥3.10-green)
 ![Node](https://img.shields.io/badge/node-≥18-green)
 ![Platform](https://img.shields.io/badge/platform-macOS%20|%20Windows-lightgrey)
 
@@ -15,10 +15,14 @@ DataMask es una aplicación web local que detecta y enmascara automáticamente d
 - 📄 **Multi-formato** — soporta PDF, Markdown (.md) y Word (.docx)
 - 🇦🇷 **Formatos argentinos** — DNI, CUIT/CUIL, teléfonos +54, pasaportes
 - 🌍 **Teléfonos internacionales** — detecta cualquier prefijo (+54, +56, +1, etc.)
-- ⚙️ **Configurable** — activa/desactiva tipos de datos, edita descripciones, agrega tipos custom
+- ⚙️ **Configurable** — activa/desactiva tipos de datos, edita descripciones, agrega tipos custom con regex
+- 🧠 **IA híbrida** — Ollama (Llama 3.1 8B) + patrones regex determinísticos
+- 💳 **Tarjetas** — Visa, Mastercard, American Express (15 y 16 dígitos)
+- 📑 **Expedientes** — GEDO/TAD (EX-2025-12345678-APN-XXX#YYY)
+- 📅 **Fechas** — DD/MM/AA, DD/MM/AAAA, textuales en español
 - 📊 **Auditoría** — log detallado de cada archivo procesado
 - 🎨 **Interfaz Cloudscape** — UI profesional en español
-- 💻 **Multiplataforma** — funciona en macOS y Windows
+- 💻 **Multiplataforma** — funciona en macOS, Windows y Linux (EC2)
 
 ## Datos que detecta
 

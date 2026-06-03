@@ -214,7 +214,7 @@ const HelpPage: React.FC = () => {
           <ExpandableSection headerText="Acerca de">
             <SpaceBetween size="s">
               <Box variant="p">
-                <strong>DataMask v1.0</strong>
+                <strong>DataMask v3.2</strong>
               </Box>
               <Box variant="p">
                 Herramienta de enmascaramiento de datos sensibles en documentos.
