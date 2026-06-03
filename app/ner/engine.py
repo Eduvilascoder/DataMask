@@ -60,6 +60,7 @@ class NEREngine:
         self._active_types = self._resolve_active_types()
         self._ollama_available = is_ollama_available()
         self._ollama_prompt = ollama_prompt
+        self._custom_patterns: list[tuple[re.Pattern[str], str]] = []
         self._spacy_nlp = None  # Lazy load solo si se necesita
 
         if self._ollama_available:
