@@ -331,8 +331,17 @@ class PDFProcessor:
 
             doc = Document(str(input_path))
 
-            # Extraer todo el texto de los párrafos
-            full_text = "\n".join(para.text for para in doc.paragraphs)
+            # Extraer todo el texto: párrafos + celdas de tablas
+            all_texts: list[str] = []
+            for para in doc.paragraphs:
+                all_texts.append(para.text)
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            all_texts.append(para.text)
+
+            full_text = "\n".join(all_texts)
 
             if not full_text.strip():
                 elapsed_ms = int((time.perf_counter() - start_time) * 1000)
@@ -363,19 +372,38 @@ class PDFProcessor:
             for para in doc.paragraphs:
                 if not para.text.strip():
                     continue
-                # Detectar entidades en este párrafo específico
                 para_entities = self._ner_engine.detect(para.text, page=0)
                 if para_entities:
                     redacted = self._apply_text_redactions(
                         para.text, para_entities
                     )
-                    # Reemplazar el texto del párrafo preservando el primer run
                     if para.runs:
                         para.runs[0].text = redacted
                         for run in para.runs[1:]:
                             run.text = ""
                     else:
                         para.text = redacted
+
+            # Aplicar redacciones en celdas de tablas
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            if not para.text.strip():
+                                continue
+                            para_entities = self._ner_engine.detect(
+                                para.text, page=0
+                            )
+                            if para_entities:
+                                redacted = self._apply_text_redactions(
+                                    para.text, para_entities
+                                )
+                                if para.runs:
+                                    para.runs[0].text = redacted
+                                    for run in para.runs[1:]:
+                                        run.text = ""
+                                else:
+                                    para.text = redacted
 
             # Guardar documento ofuscado
             self._ensure_output_dir()
