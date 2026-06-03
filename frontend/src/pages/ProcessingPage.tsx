@@ -111,7 +111,7 @@ const ProcessingPage: React.FC = () => {
       return (
         <Box margin={{ bottom: 's' }}>
           <StatusIndicator type="success">
-            Ollama activo (Llama 3.1 8B)
+            Ollama activo ({engineStatus.ollama?.model || 'modelo desconocido'})
           </StatusIndicator>
         </Box>
       );

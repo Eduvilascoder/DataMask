@@ -45,7 +45,7 @@ function formatTimestamp(timestamp: string): string {
 /** Renderiza un badge para el motor NER utilizado. */
 function renderEngineBadge(engine: string | null): React.ReactNode {
   if (!engine) return <Badge color="grey">—</Badge>;
-  if (engine === 'ollama') return <Badge color="green">Ollama</Badge>;
+  if (engine.startsWith('ollama')) return <Badge color="green">{engine}</Badge>;
   if (engine === 'spacy') return <Badge color="blue">spaCy</Badge>;
   return <Badge color="grey">{engine}</Badge>;
 }

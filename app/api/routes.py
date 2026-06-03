@@ -135,17 +135,28 @@ class LogsResponse(BaseModel):
 @router.get("/status/engine")
 async def get_engine_status():
     """Returns the status of the NER engines (Ollama and spaCy)."""
-    from app.ner.ollama_client import get_ollama_status, OLLAMA_MODEL
+    from app.ner.ollama_client import get_ollama_status, OLLAMA_MODEL, get_ollama_model
     import json as json_mod
 
     ollama_status = get_ollama_status()
     ollama_ok = ollama_status["available"]
 
+    # Get the configured model from ollama.json
+    configured_model = get_ollama_model()
+
     # Check spaCy
     spacy_ok = False
+    spacy_model = "es_core_news_lg"
+    try:
+        spacy_config_path = _get_base_dir() / "config" / "spacy.json"
+        spacy_data = json_mod.loads(spacy_config_path.read_text(encoding="utf-8"))
+        spacy_model = spacy_data.get("model", "es_core_news_lg")
+    except Exception:
+        pass
+
     try:
         import spacy
-        spacy.load("es_core_news_lg")
+        spacy.load(spacy_model)
         spacy_ok = True
     except Exception:
         pass
@@ -176,7 +187,7 @@ async def get_engine_status():
     return {
         "ollama": {
             "available": ollama_ok,
-            "model": OLLAMA_MODEL,
+            "model": configured_model,
             "url": "http://localhost:11434",
             "service_running": ollama_status.get("service_running", False),
             "model_ready": ollama_status.get("model_ready", False),
@@ -184,7 +195,7 @@ async def get_engine_status():
         },
         "spacy": {
             "available": spacy_ok,
-            "model": "es_core_news_lg",
+            "model": spacy_model,
         },
         "configured_engine": configured_engine,
         "active_engine": active,
@@ -553,8 +564,12 @@ async def _process_files(files: list[FileInfo], folder_path: str) -> None:
 
         results.append(result)
 
-        # Determinar motor activo
-        engine_name = "ollama" if ner_engine._ollama_available else "spacy"
+        # Determinar motor activo y modelo
+        if ner_engine._ollama_available:
+            from app.ner.ollama_client import get_ollama_model
+            engine_name = f"ollama ({get_ollama_model()})"
+        else:
+            engine_name = "spacy"
 
         # Registrar en log de auditoría (con tiempo y volumen)
         log_entry = AuditLogEntry(
