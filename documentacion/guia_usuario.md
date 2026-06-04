@@ -2,7 +2,7 @@
 
 ## Introducción
 
-Esta guía describe cómo utilizar la aplicación de Ofuscación de Datos Sensibles en PDFs. La aplicación permite detectar y reemplazar automáticamente información personal identificable (nombres, DNI, emails, teléfonos, etc.) en archivos PDF, generando copias ofuscadas sin modificar los archivos originales.
+Esta guía describe cómo utilizar DataMask, la aplicación de ofuscación de datos sensibles. La aplicación permite detectar y reemplazar automáticamente información personal identificable (nombres, DNI, emails, teléfonos, etc.) en archivos PDF, Markdown (.md) y Word (.docx), generando copias ofuscadas sin modificar los archivos originales.
 
 ---
 
@@ -114,9 +114,23 @@ Antes de ejecutar el procesamiento, puede personalizar qué tipos de datos sensi
 
 4. **Reactive** los tipos que desea incluir nuevamente.
 
-5. La configuración se guarda automáticamente y se conserva entre sesiones.
+5. La configuración se guarda al presionar **Guardar configuración** y se conserva entre sesiones.
 
 > **Importante**: Debe mantener al menos un tipo de dato sensible activo. Si intenta desactivar todos, el Sistema le informará que debe existir al menos 1 tipo activo.
+
+### Elegir el motor de IA y el modelo
+
+En la sección de **Configuración** también podés elegir el motor de detección:
+
+- **Ollama (IA local):** mayor precisión para nombres y direcciones. Requiere Ollama instalado y corriendo.
+- **spaCy:** más rápido, menor precisión. Es el fallback automático si Ollama no está disponible.
+
+Cuando usás Ollama, podés:
+- **Seleccionar el modelo** entre los que tengas instalados (ej: `llama3.1:8b`, `qwen2.5:7b`).
+- **Descargar un modelo nuevo** ingresando su nombre (ej: `qwen2.5:3b`) y presionando Descargar.
+- **Ajustar la temperatura** (0.0 = determinístico, recomendado 0.1 para detección).
+
+> ⚠️ Evitá modelos muy grandes (14B+ parámetros) en máquinas con poca RAM: pueden congelar el sistema.
 
 ---
 
@@ -133,12 +147,16 @@ Antes de ejecutar el procesamiento, puede personalizar qué tipos de datos sensi
 3. Durante el procesamiento, verá una **barra de progreso** que se actualiza en tiempo real mostrando:
    - Archivo actual siendo procesado
    - Cantidad de archivos completados vs. total
-   - Cantidad de datos sensibles detectados
+   - **Tiempo transcurrido** (timer en vivo)
+   - Un botón **"Cancelar procesamiento"** para detener el proceso (se detiene tras el archivo en curso)
+
+   > El estado del procesamiento se conserva si navegás a otra sección y volvés.
 
 4. Al finalizar, se muestra un **resumen de resultados** con:
    - Total de archivos procesados exitosamente
    - Total de datos sensibles detectados y ofuscados
    - Archivos que no pudieron ser procesados (si los hay)
+   - **Tiempo total** de procesamiento y **volumen** de documentos procesados
 
 ### Archivos que no pueden procesarse
 
@@ -159,11 +177,14 @@ La aplicación mantiene un registro detallado de cada operación de ofuscación 
 
    | Campo | Descripción |
    |-------|-------------|
-   | Archivo | Nombre del PDF procesado |
-   | Tamaño | Tamaño del archivo en bytes |
+   | Archivo | Nombre del documento procesado |
+   | Tamaño | Tamaño (volumen) del archivo en bytes |
    | Usuario | Usuario del sistema operativo que ejecutó la operación |
    | Fecha y hora | Timestamp en formato ISO 8601 con zona horaria local |
+   | Motor | Motor y modelo usado (ej: "ollama (llama3.1:8b)" o "spaCy") |
+   | Tiempo | Tiempo de procesamiento del archivo |
    | Resultado | "Éxito" o "Error" |
+   | Detalle error | Link "Ver error" con el mensaje completo (solo si falló) |
    | Entidades detectadas | Cantidad total de datos sensibles encontrados |
 
 3. Los registros se muestran ordenados del más reciente al más antiguo, con un máximo de 100 registros por página.

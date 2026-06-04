@@ -36,18 +36,19 @@ La interfaz de usuario está construida con React y el sistema de diseño Clouds
   - Visualización de progreso en tiempo real (SSE)
   - Visor de registros de auditoría
 
-### 3. Motor NER (spaCy + Regex)
+### 3. Motor NER (Ollama / spaCy + Regex)
 
-El motor de reconocimiento de entidades nombradas combina un modelo de lenguaje natural con patrones regex específicos para formatos argentinos.
+El motor de reconocimiento de entidades nombradas combina un modelo de lenguaje (LLM vía Ollama) o un modelo NLP (spaCy) como fallback, con patrones regex específicos para formatos argentinos.
 
-- **Modelo NER**: spaCy `es_core_news_lg` (español, ~560MB)
-- **Patrones Regex**: Expresiones regulares para DNI, CUIT/CUIL, teléfonos +54, emails, tarjetas de crédito y pasaportes argentinos
+- **Motor primario**: Ollama con modelo configurable (por defecto `llama3.1:8b`), accedido vía HTTP en `localhost:11434`
+- **Motor fallback**: spaCy `es_core_news_lg` (español, ~560MB), usado cuando Ollama no está disponible o si el usuario lo elige
+- **Patrones Regex**: Expresiones regulares para DNI, CUIT/CUIL, teléfonos, celulares locales, emails, tarjetas de crédito, CBU, pasaportes y expedientes
 - **Umbral de confianza**: 0.70 mínimo para incluir una detección
 - **Responsabilidades**:
-  - Detectar nombres y direcciones mediante NER (spaCy)
-  - Detectar formatos estructurados mediante regex
+  - Detectar nombres y direcciones mediante Ollama (semántico) o spaCy (estadístico)
+  - Detectar formatos estructurados mediante regex (cargados desde `types_config.json`)
   - Resolver conflictos cuando un dato coincide con múltiples tipos
-  - Filtrar detecciones según la Configuración_Tipos activa
+  - Filtrar detecciones según la configuración de tipos activos
 
 ### 4. Procesador PDF (PyMuPDF)
 
@@ -70,17 +71,19 @@ El componente de procesamiento de PDFs se encarga de la extracción de texto y l
 | Backend Framework | FastAPI | 0.115.6 |
 | Servidor ASGI | Uvicorn | 0.34.0 |
 | Procesamiento PDF | PyMuPDF (fitz) | 1.25.1 |
-| Motor NER | spaCy | 3.8.3 |
+| Procesamiento Word | python-docx | >= 1.1.0 |
+| Motor IA primario | Ollama (LLM local) | modelo configurable |
+| Motor NER fallback | spaCy | 3.8.3 |
 | Modelo NER español | es_core_news_lg | compatible con spaCy 3.8 |
+| Cliente HTTP (Ollama) | httpx | 0.28.1 |
 | Validación de datos | Pydantic | 2.10.4 |
 | Generación de PDFs test | fpdf2 | 2.8.2 |
-| Cliente HTTP (tests) | httpx | 0.28.1 |
 | Frontend Framework | React | 18.2.x |
 | Componentes UI | Cloudscape Design System | 3.x |
 | Router Frontend | React Router DOM | 6.20.x |
 | Bundler | Vite | 5.x |
 | Lenguaje Frontend | TypeScript | 5.3.x |
-| Runtime | Python | >= 3.9 |
+| Runtime | Python | >= 3.10 |
 | Runtime Frontend | Node.js | >= 18 |
 
 ---
@@ -113,8 +116,9 @@ El componente de procesamiento de PDFs se encarga de la extracción de texto y l
               ┌───────────────────────┐                       │
               │  Detectar entidades   │                       │
               │  sensibles (NER)      │                       │
-              │  • spaCy (nombres,    │                       │
-              │    direcciones)       │                       │
+              │  • Ollama (nombres,   │                       │
+              │    direcciones) o     │                       │
+              │    spaCy (fallback)   │                       │
               │  • Regex (DNI, email, │                       │
               │    teléfono, etc.)    │                       │
               └───────────┬───────────┘                       │
@@ -169,7 +173,8 @@ PDF-Datos-Sensibles/
 │   │   └── file_service.py       # Servicio de archivos
 │   ├── ner/                      # Motor de detección NER
 │   │   ├── __init__.py
-│   │   ├── engine.py             # Motor principal (spaCy + regex)
+│   │   ├── engine.py             # Motor principal (Ollama/spaCy + regex)
+│   │   ├── ollama_client.py      # Cliente HTTP para Ollama (LLM local)
 │   │   └── patterns.py           # Patrones regex argentinos
 │   ├── pdf/                      # Procesador de PDFs
 │   │   ├── __init__.py
@@ -205,10 +210,13 @@ PDF-Datos-Sensibles/
 │   ├── vite.config.ts
 │   └── tsconfig.json
 ├── config/                       # Configuración persistente
-│   └── types_config.json         # Tipos de datos sensibles activos
+│   ├── types_config.json         # Tipos de datos sensibles + prompt Ollama
+│   ├── ollama.json               # Modelo, temperatura, keep_alive de Ollama
+│   └── spacy.json                # Modelo spaCy configurado
 ├── models/                       # Modelo spaCy descargado
 ├── log/                          # Registros de auditoría (JSON Lines)
-├── ofuscados/                    # PDFs ofuscados generados
+├── ofuscados/                    # Documentos ofuscados generados (PDF/MD/DOCX)
+├── ofuscados_md/                 # Versiones Markdown de los ofuscados
 ├── test/                         # PDFs de ejemplo para pruebas
 ├── documentacion/                # Documentación del proyecto
 │   ├── arquitectura.md           # Este documento
@@ -233,12 +241,20 @@ La comunicación principal entre el frontend y el backend se realiza mediante HT
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| POST | `/api/folders/validate` | Valida ruta y lista archivos PDF |
+| POST | `/api/folders/validate` | Valida ruta y lista archivos (PDF, MD, DOCX) |
+| POST | `/api/folders/browse` | Navega directorios del sistema de archivos |
 | POST | `/api/process` | Inicia procesamiento de ofuscación |
+| POST | `/api/process/cancel` | Cancela el procesamiento en curso |
 | GET | `/api/process/status` | Stream SSE de progreso |
 | GET | `/api/config` | Obtiene configuración de tipos activos |
 | PUT | `/api/config` | Actualiza configuración de tipos |
+| GET / PUT | `/api/config/ollama` | Lee/guarda config de Ollama (modelo, temperatura, etc.) |
+| GET / PUT | `/api/config/spacy` | Lee/guarda config de spaCy |
+| GET | `/api/models/ollama` | Lista modelos de Ollama instalados |
+| POST | `/api/models/ollama/pull` | Descarga un modelo de Ollama |
+| GET | `/api/status/engine` | Estado de motores (Ollama/spaCy) y modelo activo |
 | GET | `/api/logs` | Lista registros de auditoría (paginado) |
+| GET | `/api/output/files` | Lista archivos ofuscados |
 | GET | `/api/health` | Health check del servidor |
 
 ### SSE (Backend → Frontend)

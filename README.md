@@ -2,7 +2,7 @@
 
 **Enmascarar datos sensibles en documentos**
 
-![Version](https://img.shields.io/badge/version-3.2-blue)
+![Version](https://img.shields.io/badge/version-3.2.2-blue)
 ![Python](https://img.shields.io/badge/python-≥3.10-green)
 ![Node](https://img.shields.io/badge/node-≥18-green)
 ![Platform](https://img.shields.io/badge/platform-macOS%20|%20Windows-lightgrey)
@@ -13,14 +13,16 @@ DataMask es una aplicación web local que detecta y enmascara automáticamente d
 
 - 🔒 **100% local** — procesamiento offline, sin envío de datos a la nube
 - 📄 **Multi-formato** — soporta PDF, Markdown (.md) y Word (.docx)
-- 🇦🇷 **Formatos argentinos** — DNI, CUIT/CUIL, teléfonos +54, pasaportes
+- 🇦🇷 **Formatos argentinos** — DNI, CUIT/CUIL, teléfonos +54, celulares locales (11)..., pasaportes
 - 🌍 **Teléfonos internacionales** — detecta cualquier prefijo (+54, +56, +1, etc.)
 - ⚙️ **Configurable** — activa/desactiva tipos de datos, edita descripciones, agrega tipos custom con regex
-- 🧠 **IA híbrida** — Ollama (Llama 3.1 8B) + patrones regex determinísticos
+- 🧠 **IA híbrida** — Ollama (modelo configurable) + patrones regex determinísticos, con spaCy como fallback
+- 🔀 **Modelo seleccionable** — elegí el modelo de Ollama desde la UI (llama3.1:8b, qwen2.5:7b, etc.) y descargá nuevos modelos sin salir de la app
 - 💳 **Tarjetas** — Visa, Mastercard, American Express (15 y 16 dígitos)
 - 📑 **Expedientes** — GEDO/TAD (EX-2025-12345678-APN-XXX#YYY)
 - 📅 **Fechas** — DD/MM/AA, DD/MM/AAAA, textuales en español
-- 📊 **Auditoría** — log detallado de cada archivo procesado
+- ⏱️ **Timer y cancelación** — tiempo de procesamiento en vivo y botón para cancelar el proceso
+- 📊 **Auditoría** — log detallado de cada archivo: motor y modelo usado, tiempo de procesamiento, volumen y detalle de error
 - 🎨 **Interfaz Cloudscape** — UI profesional en español
 - 💻 **Multiplataforma** — funciona en macOS, Windows y Linux (EC2)
 
@@ -31,8 +33,8 @@ DataMask es una aplicación web local que detecta y enmascara automáticamente d
 | Nombre y Apellido | `[NOMBRE]` | Juan Pérez, MARÍA GARCÍA |
 | Email | `[EMAIL]` | usuario@ejemplo.com |
 | Teléfono | `[TELEFONO]` | +54 11 4567 8901, +56 9 9440 0259 |
-| Celular | `[CELULAR]` | +54 9 11 1234 5678 |
-| Dirección | `[DIRECCION]` | Av. Corrientes 1234, CABA |
+| Celular | `[CELULAR]` | +54 9 11 1234 5678, (11)34306563 |
+| Dirección | `[DIRECCION]` | Av. Corrientes 1234, CABA, GRANADEROS 457 5 G |
 | DNI | `[DNI]` | 32.456.789 |
 | CUIT/CUIL | `[CUIT_CUIL]` | 20-32456789-4 |
 | Tarjeta de Crédito | `[TARJETA_CREDITO]` | 4532-1234-5678-9012 |
@@ -82,7 +84,7 @@ stop.bat        # Windows
 
 1. Seleccioná una carpeta con documentos (PDF, MD, DOCX)
 2. Elegí qué archivos procesar
-3. DataMask detecta datos sensibles usando IA (spaCy NER + regex)
+3. DataMask detecta datos sensibles usando IA (Ollama o spaCy) + regex
 4. Reemplaza cada dato por una etiqueta `[TIPO]`
 5. Genera archivos ofuscados en `ofuscados/` y versiones Markdown en `ofuscados_md/`
 6. Los originales **nunca se modifican**
@@ -93,7 +95,7 @@ stop.bat        # Windows
 DataMask/
 ├── app/                  # Backend Python (FastAPI)
 ├── frontend/             # Frontend React (Cloudscape)
-├── config/               # Configuración de tipos
+├── config/               # Configuración (tipos, Ollama, spaCy)
 ├── documentacion/        # Documentación completa
 ├── test/                 # PDFs de ejemplo para pruebas
 ├── log/                  # Registros de auditoría (generado)
@@ -104,12 +106,15 @@ DataMask/
 └── stop.sh / stop.bat    # Detener la app
 ```
 
+> La carpeta `config/` contiene tres archivos: `types_config.json` (tipos de datos sensibles y prompt), `ollama.json` (modelo, temperatura, keep_alive) y `spacy.json` (modelo spaCy).
+
 ## Requisitos del sistema
 
-- Python >= 3.9
+- Python >= 3.10
 - Node.js >= 18
-- 2 GB de espacio en disco (modelo de IA)
-- macOS 12+ o Windows 10+
+- Ollama (opcional, recomendado para máxima precisión)
+- 8 GB de RAM recomendado si se usa Ollama
+- macOS 12+, Windows 10+ o Linux
 
 ## Seguridad
 
@@ -122,18 +127,18 @@ DataMask/
 
 - **Backend:** Python, FastAPI, spaCy, PyMuPDF, python-docx
 - **Frontend:** React, TypeScript, Cloudscape Design System
-- **IA:** spaCy `es_core_news_lg` (modelo español) + patrones regex
+- **IA:** Ollama (modelo configurable) + spaCy `es_core_news_lg` (fallback) + patrones regex
 
-### Modelo de IA
+### Motor de IA
 
-DataMask usa **spaCy `es_core_news_lg`** — un modelo de procesamiento de lenguaje natural entrenado en español con ~560MB. Es un pipeline CNN (Convolutional Neural Network) entrenado en el corpus AnCora y WikiNER que incluye:
+DataMask usa un enfoque híbrido con dos motores intercambiables más patrones regex:
 
-- **NER (Named Entity Recognition):** detecta personas (PER) y ubicaciones (LOC) en texto español
-- **F-score NER:** ~0.89 en el benchmark de evaluación
-- **Complemento regex:** patrones de expresiones regulares para formatos estructurados (DNI, CUIT, teléfonos, emails, tarjetas, CBU, pasaportes) que el modelo NER no cubre
+- **Ollama (recomendado):** ejecuta un LLM local (por defecto `llama3.1:8b`, configurable). Entiende el contexto semántico del texto, por lo que detecta nombres en mayúsculas, nombres poco comunes y direcciones complejas con alta precisión. El modelo se elige desde la página de Configuración y se puede descargar uno nuevo sin salir de la app.
+- **spaCy `es_core_news_lg`:** pipeline CNN entrenado en español (~560MB). Es el fallback automático cuando Ollama no está disponible, o se puede elegir manualmente cuando se prioriza velocidad sobre precisión.
+- **Patrones regex:** complemento determinístico para formatos estructurados (DNI, CUIT, teléfonos, celulares locales, emails, tarjetas, CBU, pasaportes, expedientes) con detección de ~100% de precisión.
 
-El modelo se descarga una sola vez durante la instalación y se ejecuta 100% local — no requiere conexión a internet ni envía datos a ningún servidor.
+Todo se ejecuta 100% local — no requiere conexión a internet ni envía datos a ningún servidor. Ver `documentacion/motorIA.md` para la comparación detallada entre Ollama y spaCy.
 
 ---
 
-**DataMask v1.0** — by [EduTheCoder](https://github.com/Eduvilascoder)
+**DataMask v3.2.2** — by [EduTheCoder](https://github.com/Eduvilascoder)

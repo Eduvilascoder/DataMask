@@ -65,10 +65,12 @@ DataMask procesa documentos (PDF, Markdown, Word) para detectar y enmascarar dat
 │  ┌────────────────┐  ┌────────────────┐  ┌──────────────────┐  │
 │  │  NER Engine    │  │ PDF Processor  │  │  Config Service  │  │
 │  │                │  │                │  │                  │  │
-│  │ • spaCy NER   │  │ • PDF (fitz)   │  │ • Load JSON      │  │
-│  │ • Regex AR    │  │ • Markdown     │  │ • Save JSON      │  │
-│  │ • Filtrado    │  │ • Word (docx)  │  │ • Validate       │  │
-│  │ • Conflictos  │  │ • Redacciones  │  │                  │  │
+│  │ • Ollama (LLM)│  │ • PDF (fitz)   │  │ • Load JSON      │  │
+│  │ • spaCy NER   │  │ • Markdown     │  │ • Save JSON      │  │
+│  │   (fallback)  │  │ • Word (docx)  │  │ • Validate       │  │
+│  │ • Regex AR    │  │ • Redacciones  │  │                  │  │
+│  │ • Filtrado    │  │                │  │                  │  │
+│  │ • Conflictos  │  │                │  │                  │  │
 │  └───────┬────────┘  └───────┬────────┘  └──────────────────┘  │
 │          │                   │                                   │
 │          │                   ▼                                   │
@@ -83,9 +85,10 @@ DataMask procesa documentos (PDF, Markdown, Word) para detectar y enmascarar dat
 │          ▼                                                       │
 │  ┌────────────────────────────────────────────────────────┐     │
 │  │              MODELO IA LOCAL                            │     │
-│  │              spaCy es_core_news_lg (~560MB)             │     │
-│  │              • PER → [NOMBRE]                          │     │
-│  │              • LOC → [DIRECCION]                        │     │
+│  │   Ollama (modelo configurable, ej: llama3.1:8b)        │     │
+│  │   o spaCy es_core_news_lg (~560MB, fallback)           │     │
+│  │              • Nombres → [NOMBRE]                       │     │
+│  │              • Direcciones → [DIRECCION]                │     │
 │  └────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────┘
                            │
@@ -184,8 +187,8 @@ _process_pdf_file(file_path):
      Para cada página:
        • Extrae texto con page.get_text()
        • Detecta entidades con NEREngine.detect(text, page_num)
-         ├── spaCy: PER → NOMBRE, LOC → DIRECCION
-         ├── Regex: DNI, CUIT, email, teléfono, etc.
+         ├── Ollama: nombres y direcciones (o spaCy como fallback)
+         ├── Regex: DNI, CUIT, email, teléfono, celular, etc.
          ├── Filtra por confianza >= 0.70
          ├── Filtra por tipos activos en config
          └── Resuelve conflictos (mayor confianza gana)
@@ -271,11 +274,14 @@ Frontend (OutputPage):
 ```
 Escritura (automática durante procesamiento):
   LogService.write_entry():
-    • filename, file_size_bytes
+    • filename, file_size_bytes (volumen del documento)
     • os_user (detectado del OS)
     • timestamp (ISO 8601 con timezone)
     • result (success/error)
     • entities_detected, entities_by_type
+    • engine (motor y modelo usado, ej: "ollama (llama3.1:8b)" o "spacy")
+    • processing_time_ms (tiempo de procesamiento del archivo)
+    • error_detail (mensaje de error si el archivo falló)
 
 Lectura (desde la UI):
   GET /api/logs?page=1&page_size=100
@@ -283,6 +289,9 @@ Lectura (desde la UI):
     → Lee audit.jsonl línea por línea
     → Ordena de más reciente a más antiguo
     → Aplica paginación
+
+La tabla de logs muestra además el detalle del error (popover "Ver error")
+y el tiempo de procesamiento por archivo.
 ```
 
 ---
@@ -302,12 +311,20 @@ Lectura (desde la UI):
 
 ```
 1. Primera invocación de _get_ner_engine():
-   • Carga spaCy es_core_news_lg (~3 segundos)
+   • Detecta si Ollama está disponible (localhost:11434)
+   • Si Ollama está disponible: lo usa como motor primario
+   • Si no: carga spaCy es_core_news_lg (~3 segundos) como fallback
    • Crea instancia singleton de NEREngine
    • Se mantiene en memoria durante toda la sesión
 
 2. Cada procesamiento:
+   • Recarga la config y los patrones regex desde types_config.json
+   • Lee el modelo de Ollama configurado desde ollama.json
    • Actualiza config del singleton (ner_engine.config = config)
    • Recalcula tipos activos
-   • Reutiliza el modelo ya cargado (sin recarga)
+   • Reutiliza el motor ya cargado
+
+NOTA: el singleton se mantiene en memoria entre requests. Tras cambios
+en el código o en los archivos de config, reiniciar la app para garantizar
+que el motor se recree limpio (ver .kiro/steering/dev-workflow.md).
 ```

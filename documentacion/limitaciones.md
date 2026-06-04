@@ -1,4 +1,4 @@
-# Limitaciones Conocidas — DataMask v3.0
+# Limitaciones Conocidas — DataMask v3.2.2
 
 ## Documentos embebidos
 
@@ -16,10 +16,10 @@
 
 | Limitación | Valor | Impacto |
 |-----------|-------|---------|
-| Texto enviado a Ollama | Máximo 3000 caracteres por página | Páginas con más texto se truncan. Datos sensibles al final de una página muy larga podrían no detectarse |
+| Texto enviado a Ollama | Máximo 8000 caracteres por página | Páginas con más texto se truncan. Datos sensibles al final de una página muy larga podrían no detectarse |
 | Tamaño de archivo | Sin límite técnico | Archivos > 50MB pueden tardar varios minutos y consumir mucha RAM |
 | RAM para procesamiento | Depende del tamaño del PDF | Un PDF de 100+ páginas puede requerir 2-3GB de RAM adicional |
-| Timeout de Ollama | 30 segundos por página | Si Ollama tarda más de 30 segundos en responder por una página, se omite esa página |
+| Timeout de Ollama | 60 segundos por página (configurable) | Si Ollama tarda más del timeout configurado en responder por una página, se omite esa página |
 
 ---
 
@@ -83,7 +83,7 @@
 | RAM requerida | Mínimo 8GB (5GB para el modelo + 3GB para OS y app) |
 | Primera inferencia | La primera llamada a Ollama después de iniciar es más lenta (~5-10 segundos) porque carga el modelo en memoria |
 | Consistencia | Ollama no es 100% determinístico (temperature=0.1). Puede haber variaciones mínimas entre ejecuciones |
-| Timeout | Si Ollama tarda > 30 segundos por página, se omite esa página y se usa spaCy como fallback |
+| Timeout | Si Ollama tarda más del timeout configurado (60s por defecto) por página, se omite esa página y se usa spaCy como fallback |
 | Modelo offline | El modelo debe descargarse durante la instalación (requiere internet). Después funciona offline |
 
 ---

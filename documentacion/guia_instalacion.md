@@ -145,7 +145,7 @@ PDF-Datos-Sensibles/
 ├── config/         ← Configuración persistente
 └── frontend/
     ├── node_modules/  ← Dependencias del frontend
-    └── dist/          ← Build compilado del frontend
+    └── build/          ← Build compilado del frontend
 ```
 
 ### 2. Verificar el modelo de IA

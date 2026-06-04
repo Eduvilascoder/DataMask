@@ -125,11 +125,23 @@ Además, DataMask incluye una **heurística de nombres en mayúsculas** que func
 
 ## Configuración
 
-Podés cambiar el motor en cualquier momento desde la sección **Configuración** de la aplicación. El cambio aplica al próximo procesamiento — los archivos ya procesados no se re-procesan automáticamente.
+Podés cambiar el motor y el modelo de Ollama en cualquier momento desde la sección
+**Configuración** de la aplicación. Desde ahí también podés descargar nuevos modelos
+de Ollama y ajustar la temperatura. El cambio aplica al próximo procesamiento — los
+archivos ya procesados no se re-procesan automáticamente.
 
-El indicador de estado en la página de Procesamiento muestra qué motor está activo:
+> El motor por defecto de Ollama es `llama3.1:8b`. La tabla comparativa de arriba
+> usa ese modelo como referencia, pero los números (velocidad, RAM) varían según el
+> modelo que elijas. Modelos más chicos (ej: `qwen2.5:3b`) son más rápidos y usan
+> menos RAM a costa de algo de precisión.
 
-- 🟢 **Ollama activo (Llama 3.1 8B)** — máxima precisión
+El indicador de estado en la página de Procesamiento muestra qué motor y modelo está activo:
+
+- 🟢 **Ollama activo (modelo configurado, ej: llama3.1:8b / qwen2.5:7b)** — máxima precisión
 - 🔵 **Ollama deshabilitado — usando spaCy** — elegido por el usuario
 - 🟡 **spaCy activo (Ollama no disponible)** — fallback automático
 - 🔴 **Sin motor NER** — ningún motor disponible
+
+> El modelo de Ollama se elige desde la página de Configuración. Desde ahí también
+> se puede descargar un modelo nuevo y ajustar la temperatura. El modelo usado en
+> cada procesamiento queda registrado en el log de auditoría.

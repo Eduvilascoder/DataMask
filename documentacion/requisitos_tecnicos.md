@@ -1,4 +1,4 @@
-# Requisitos Técnicos — DataMask v2.0
+# Requisitos Técnicos — DataMask v3.2.2
 
 ## Requisitos de Hardware
 
@@ -90,14 +90,16 @@ DataMask usa un enfoque híbrido para la detección de datos sensibles:
 | Velocidad | ⚡ Instantáneo | 🐢 2-5s/pág | ⚡ Rápido para formatos + 2-5s para nombres |
 | RAM requerida | 1GB | 8GB | 8GB |
 
-### Modelo: Llama 3.1 8B
+### Modelo: configurable (por defecto Llama 3.1 8B)
 
-- **Desarrollador:** Meta AI
-- **Parámetros:** 8 mil millones
-- **Cuantización:** Q4_0 (4-bit, reduce tamaño de 16GB a 4.7GB)
-- **Idiomas:** Multilingüe (español, inglés, portugués, etc.)
-- **Licencia:** Llama 3.1 Community License (uso comercial permitido)
+DataMask permite elegir el modelo de Ollama desde la página de Configuración y descargar nuevos modelos sin salir de la app. El modelo por defecto es `llama3.1:8b`.
+
+- **Por defecto:** Llama 3.1 8B (Meta AI), cuantización Q4_0 (~4.7GB), multilingüe
+- **Alternativas recomendadas:** `qwen2.5:7b` (~4.7GB), `qwen2.5:3b` (~1.9GB), `llama3.2:3b`
+- **Licencia (Llama):** Llama 3.1 Community License (uso comercial permitido)
 - **Ejecución:** 100% local vía Ollama, sin conexión a internet
+
+> ⚠️ **Precaución con modelos grandes:** modelos de 14B+ parámetros (ej: `qwen3.6` de ~23GB) pueden agotar la RAM y congelar la máquina. Se recomienda usar modelos de ≤8B parámetros salvo que la máquina tenga RAM suficiente (32GB+).
 
 ### Comunicación con Ollama
 
@@ -111,7 +113,7 @@ DataMask Backend ──HTTP──▶ Ollama API (localhost:11434)
 
 - Protocolo: HTTP REST
 - Endpoint: `http://localhost:11434/api/generate`
-- Timeout: 30 segundos por request
+- Timeout: 60 segundos por request (configurable en `config/ollama.json`)
 - Sin conexión a internet requerida
 
 ---
