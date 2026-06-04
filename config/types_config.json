@@ -33,8 +33,8 @@
       "enabled": true,
       "label": "DIRECCION",
       "description": "Detecta direcciones postales (calle + número)",
-      "pattern": "(?:calle|Calle|CALLE|[Aa]v\\.?|[Aa]venida|[Dd]omicilio|[Dd]irección)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)",
-      "note": "Usa grupo de captura para excluir la keyword."
+      "pattern": "(?:calle|Calle|CALLE|[Aa]v\\.?|[Aa]venida|[Dd]omicilio|[Dd]irección)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)|\\b([A-ZÁÉÍÓÚÑ]{3,}(?:\\s[A-ZÁÉÍÓÚÑ]+)*\\s+\\d{1,5}(?:\\s+\\d{1,3}\\s+[A-Z])?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)\\b",
+      "note": "Grupo 1: con keyword. Grupo 2: dirección en MAYÚSCULAS + número (ej: GRANADEROS 457 5 G)."
     },
     "tarjeta_credito": {
       "enabled": true,
@@ -75,6 +75,13 @@
     }
   },
   "custom_types": [
+    {
+      "id": "celular_local",
+      "enabled": true,
+      "label": "CELULAR",
+      "description": "Detecta celulares en formato local (11)XXXXXXXX o (XXX)XXXXXXX",
+      "pattern": "\\(\\d{2,4}\\)\\s?\\d{6,8}"
+    },
     {
       "id": "telefono_chile",
       "enabled": true,
