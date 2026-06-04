@@ -445,7 +445,7 @@ class NEREngine:
     ) -> list[DetectedEntity]:
         """Fusiona entidades adyacentes del mismo tipo en una sola.
 
-        Si "Pablo" [NOMBRE] y "Bitreras" [NOMBRE] están separadas
+        Si "Juan" [NOMBRE] y "Pérez" [NOMBRE] están separadas
         solo por espacios en la misma línea, se fusionan en una sola
         entidad [NOMBRE] que cubre todo el span original.
 
@@ -578,7 +578,7 @@ class NEREngine:
                     page=page,
                 ))
             # También detectar líneas en Title Case (firmas)
-            # Ej: "Gustavo Ariel Vilas" como línea sola
+            # Ej: "Juan Pérez González" como línea sola
             elif (
                 2 <= len(words) <= 4
                 and stripped.replace(" ", "").isalpha()

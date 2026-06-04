@@ -191,8 +191,8 @@ sistema de archivos y la configuración de red del servidor.
 - **Severidad:** MEDIUM
 - **Archivo:** `app/log/service.py` y `log/audit.jsonl`
 - **Descripción:** El log de auditoría registra los nombres completos de los archivos procesados. En el archivo `audit.jsonl` actual se observan nombres como:
-  - `"cv-pbitreras-2026-infra-en.pdf"` — nombre de persona
-  - `"Edu Vilas - Annual Review Q1 2026.pdf"` — nombre de persona + tipo de documento
+  - `"cv-jperez-2026-infra-en.pdf"` — nombre de persona
+  - `"Juan Pérez - Annual Review Q1 2026.pdf"` — nombre de persona + tipo de documento
   - `"Invoice_2353055989.pdf"` — número de factura
   
   Estos nombres de archivo pueden contener PII o información confidencial.
@@ -213,7 +213,7 @@ sistema de archivos y la configuración de red del servidor.
 
 - **Severidad:** INFO
 - **Archivo:** `app/api/routes.py` — endpoint `GET /api/output/files`
-- **Descripción:** La respuesta incluye el campo `path` con la ruta absoluta completa de cada archivo ofuscado (ej: `/Users/eduvilas/Documents/.../ofuscados/archivo.pdf`). Esto expone la estructura del sistema de archivos del usuario.
+- **Descripción:** La respuesta incluye el campo `path` con la ruta absoluta completa de cada archivo ofuscado (ej: `/Users/usuario/Documents/.../ofuscados/archivo.pdf`). Esto expone la estructura del sistema de archivos del usuario.
 - **Fix recomendado:**
   - Retornar solo rutas relativas al directorio base del proyecto.
   - El frontend no necesita la ruta absoluta ya que usa los endpoints de la API para acceder a los archivos.

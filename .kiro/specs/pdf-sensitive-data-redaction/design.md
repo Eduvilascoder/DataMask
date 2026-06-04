@@ -368,7 +368,7 @@ frontend/src/
 {
   "filename": "contrato_servicio.pdf",
   "file_size_bytes": 245760,
-  "os_user": "eduardo",
+  "os_user": "jperez",
   "timestamp": "2024-01-15T14:30:22-03:00",
   "result": "success",
   "entities_detected": 12,

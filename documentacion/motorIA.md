@@ -30,7 +30,7 @@ DataMask ofrece dos motores de inteligencia artificial para la detección de dat
 
 ### Cómo funciona en DataMask
 
-DataMask envía el texto del documento a Ollama con un prompt especializado que le pide identificar nombres de personas y direcciones. El modelo "entiende" el contexto semántico del texto — sabe que "ALEXIS PIZARRO CALDERON" al inicio de un CV es un nombre completo, sin importar si está en mayúsculas o si los nombres no son comunes.
+DataMask envía el texto del documento a Ollama con un prompt especializado que le pide identificar nombres de personas y direcciones. El modelo "entiende" el contexto semántico del texto — sabe que "JUAN PÉREZ GONZÁLEZ" al inicio de un CV es un nombre completo, sin importar si está en mayúsculas o si los nombres no son comunes.
 
 ```
 Texto del documento → Ollama (localhost:11434) → Lista de nombres y direcciones detectados
@@ -81,8 +81,8 @@ Texto del documento → spaCy (en memoria) → Entidades PER/LOC detectadas
 ### Desventajas de spaCy
 
 - **Vocabulario limitado:** Solo reconoce nombres que son similares a los de su corpus de entrenamiento
-- **Falla con mayúsculas:** "ALEXIS PIZARRO" en mayúsculas no se reconoce como nombre
-- **Nombres poco comunes:** Nombres que no son típicos del español (ej: "Bitreras") pueden no detectarse
+- **Falla con mayúsculas:** "JUAN PÉREZ" en mayúsculas no se reconoce como nombre
+- **Nombres poco comunes:** Nombres que no son típicos del español (ej: "Bitrera") pueden no detectarse
 - **Direcciones parciales:** Solo detecta ciudades/países individuales, no direcciones completas
 
 ---

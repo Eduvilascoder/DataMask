@@ -96,9 +96,9 @@ Responde SOLO con el JSON array:
 Dado el texto:
 
 ```
-Titular: Eduardo Dario Vilas
+Titular: Juan Pérez González
 DNI: 35.123.456
-Email: evilas@test.com
+Email: jperez@ejemplo.com
 Facturación 18/11/25
 Referencia 00342381
 ```
@@ -107,9 +107,9 @@ La respuesta esperada del modelo es:
 
 ```json
 [
-  {"text": "Eduardo Dario Vilas", "type": "NOMBRE"},
+  {"text": "Juan Pérez González", "type": "NOMBRE"},
   {"text": "35.123.456", "type": "DNI"},
-  {"text": "evilas@test.com", "type": "EMAIL"},
+  {"text": "jperez@ejemplo.com", "type": "EMAIL"},
   {"text": "18/11/25", "type": "FECHA"}
 ]
 ```
