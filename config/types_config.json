@@ -33,8 +33,8 @@
       "enabled": true,
       "label": "DIRECCION",
       "description": "Detecta direcciones postales (calle + número)",
-      "pattern": "(?:calle|Calle|CALLE|[Aa]v\\.?|[Aa]venida|[Dd]omicilio|[Dd]irección)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)|\\b([A-ZÁÉÍÓÚÑ]{3,}(?:\\s[A-ZÁÉÍÓÚÑ]+)*\\s+\\d{1,5}(?:\\s+\\d{1,3}\\s+[A-Z])?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)\\b",
-      "note": "Grupo 1: con keyword. Grupo 2: dirección en MAYÚSCULAS + número (ej: GRANADEROS 457 5 G)."
+      "pattern": "(?:calle|Calle|CALLE|[Aa]v\\.?|[Aa]venida|[Dd]omicilio|[Dd]irección)\\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\\s]+\\d{1,5}(?:[/\\-]\\d{1,4})?(?:\\s*,?\\s*(?:CABA|Capital Federal))?)|(?:^|\\n)([A-ZÁÉÍÓÚÑ]{3,}(?:[^\\S\\n][A-ZÁÉÍÓÚÑ]+)*[^\\S\\n]+\\d{1,5}(?:[^\\S\\n]+\\d{1,3}[^\\S\\n]+[A-Z])?)",
+      "note": "Grupo 1: con keyword. Grupo 2: dirección en MAYÚSCULAS + número al inicio de línea sin cruzar newlines."
     },
     "tarjeta_credito": {
       "enabled": true,
